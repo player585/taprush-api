@@ -15,7 +15,6 @@ import os
 import time
 import logging
 import urllib.request
-import urllib.error
 from datetime import datetime, timezone
 
 # ══════════════════════════════════════════════
@@ -104,7 +103,10 @@ def send_email(subject, body_text):
     
     Railway Hobby plan blocks SMTP ports (25/465/587), so we use
     Resend's REST API over HTTPS instead. Free tier: 100 emails/day.
+    Uses 'requests' library with browser-like headers to avoid Cloudflare 1010 blocks.
     """
+    import requests as req_lib
+
     api_key = os.environ.get("RESEND_API_KEY", "").strip()
     if not api_key:
         logger.warning("RESEND_API_KEY not set — skipping email notification")
@@ -122,35 +124,32 @@ def send_email(subject, body_text):
         <p style="color: #888; font-size: 12px;">TAP RUSH Monitoring — Railway</p>
         </body></html>"""
 
-        payload = json.dumps({
-            "from": from_addr,
-            "to": [NOTIFY_EMAIL],
-            "subject": subject,
-            "html": html,
-            "text": body_text
-        }).encode("utf-8")
-
-        req = urllib.request.Request(
+        resp = req_lib.post(
             "https://api.resend.com/emails",
-            data=payload,
             headers={
+                "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
-                "Authorization": f"Bearer {api_key}"
-            }
+                "User-Agent": "Mozilla/5.0 (compatible; TapRush/1.0)",
+                "Accept": "application/json",
+            },
+            json={
+                "from": from_addr,
+                "to": [NOTIFY_EMAIL],
+                "subject": subject,
+                "html": html,
+                "text": body_text
+            },
+            timeout=15
         )
-        resp = urllib.request.urlopen(req, timeout=15)
-        result = json.loads(resp.read().decode("utf-8"))
-        logger.info(f"Email sent via Resend: {subject} (id={result.get('id','?')})")
-        return True
-    except urllib.error.HTTPError as e:
-        body = ""
-        try:
-            body = e.read().decode("utf-8", errors="replace")
-        except Exception:
-            pass
-        logger.error(f"Email HTTP {e.code}: {body}")
-        _log_cron("email", "error", f"HTTP {e.code}: {body[:300]}")
-        return False
+
+        if resp.status_code == 200:
+            result = resp.json()
+            logger.info(f"Email sent via Resend: {subject} (id={result.get('id','?')})")
+            return True
+        else:
+            logger.error(f"Email HTTP {resp.status_code}: {resp.text[:300]}")
+            _log_cron("email", "error", f"HTTP {resp.status_code}: {resp.text[:300]}")
+            return False
     except Exception as e:
         logger.error(f"Email failed: {e}")
         _log_cron("email", "error", str(e))
