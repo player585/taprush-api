@@ -1,2 +1,3 @@
 fastapi
 uvicorn[standard]
+apscheduler>=3.10
