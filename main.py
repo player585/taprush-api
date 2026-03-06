@@ -24,6 +24,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 
+import crons
+
 # ══════════════════════════════════════════════
 #  CONFIG
 # ══════════════════════════════════════════════
@@ -219,7 +221,11 @@ def ensure_tournament(db):
 @asynccontextmanager
 async def lifespan(app):
     os.makedirs(DATA_DIR, exist_ok=True)
+    # Start cron scheduler
+    crons.start_scheduler()
     yield
+    # Stop cron scheduler on shutdown
+    crons.stop_scheduler()
 
 app = FastAPI(title="TAP RUSH API", lifespan=lifespan)
 app.add_middleware(
@@ -857,6 +863,54 @@ def vote_results(poll_id: str = ""):
     results = get_poll_results(db, poll_id)
     db.close()
     return results
+
+
+# ══════════════════════════════════════════════
+#  CRON ADMIN ENDPOINTS
+# ══════════════════════════════════════════════
+@app.get("/cron/status")
+def cron_status(key: str = ""):
+    if hashlib.sha256(key.encode()).hexdigest() != ADMIN_KEY_HASH:
+        return JSONResponse(status_code=403, content={"error": "Unauthorized"})
+    return crons.get_scheduler_status()
+
+
+@app.get("/cron/logs")
+def cron_logs(key: str = "", limit: int = 50):
+    if hashlib.sha256(key.encode()).hexdigest() != ADMIN_KEY_HASH:
+        return JSONResponse(status_code=403, content={"error": "Unauthorized"})
+    limit = min(limit, 200)
+    log_file = os.path.join(DATA_DIR, "cron_log.json")
+    try:
+        with open(log_file, "r") as f:
+            logs = json.load(f)
+        return {"logs": logs[-limit:]}
+    except Exception:
+        return {"logs": []}
+
+
+@app.post("/cron/trigger")
+async def cron_trigger(request: Request):
+    """Manually trigger a cron job (for testing)."""
+    body = await request.json()
+    admin_key = body.get("admin_key", "")
+    if hashlib.sha256(admin_key.encode()).hexdigest() != ADMIN_KEY_HASH:
+        return JSONResponse(status_code=403, content={"error": "Unauthorized"})
+
+    job_id = body.get("job_id", "")
+    valid_jobs = {
+        "rush_monitor": crons.cron_rush_monitor,
+        "vote_checker": crons.cron_vote_checker,
+        "tournament_end": crons.cron_tournament_end,
+    }
+    if job_id not in valid_jobs:
+        return JSONResponse(status_code=400, content={"error": f"Invalid job_id. Valid: {list(valid_jobs.keys())}"})
+
+    # Run in background thread to not block
+    import threading
+    t = threading.Thread(target=valid_jobs[job_id], daemon=True)
+    t.start()
+    return {"success": True, "message": f"Job '{job_id}' triggered", "note": "Running in background"}
 
 
 # ══════════════════════════════════════════════
