@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TAP RUSH — Daily Tournament</title>
+<meta name="description" content="Daily RUSH token tournaments. Buy in 1M RUSH, compete for the prize pool. 70/20/10 payout.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800;900&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230a0a0f'/><text x='16' y='22' text-anchor='middle' font-family='sans-serif' font-weight='bold' font-size='14' fill='%2300f0ff'>R</text></svg>">
+
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0a0f;--bg2:#0e0e18;--bg3:#12121e;
+  --border:rgba(255,255,255,0.06);
+  --cyan:#00f0ff;--green:#00ff88;--yellow:#f0ff00;--magenta:#ff00ff;
+  --red:#ff3355;--orange:#ff8800;--white:#e8e8f0;--gray:#777790;
+  --gold:#ffd700;--silver:#c0c0c0;--bronze:#cd7f32;
+  --font-head:'Orbitron',sans-serif;--font-mono:'JetBrains Mono',monospace;
+}
+html,body{min-height:100%;background:var(--bg);color:var(--white);font-family:var(--font-mono)}
+body{display:flex;flex-direction:column;align-items:center;padding:0}
+
+/* ── Header ── */
+.header{width:100%;padding:16px 20px;display:flex;align-items:center;justify-content:center;gap:12px;border-bottom:1px solid var(--border);background:linear-gradient(180deg,rgba(0,240,255,0.03),transparent)}
+.header img{height:36px;width:auto}
+.header h1{font-family:var(--font-head);font-size:14px;font-weight:700;color:var(--cyan);letter-spacing:2px}
+
+/* ── Main layout ── */
+.main{width:100%;max-width:480px;padding:16px;display:flex;flex-direction:column;gap:14px}
+
+/* ── Panels ── */
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px;position:relative;overflow:hidden}
+.panel::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(0,240,255,0.2),transparent)}
+.panel-title{font-family:var(--font-head);font-size:11px;font-weight:700;color:var(--cyan);letter-spacing:1.5px;margin-bottom:12px;text-transform:uppercase}
+.panel-glow{border-color:rgba(0,240,255,0.15);box-shadow:0 0 30px rgba(0,240,255,0.05)}
+
+/* ── Countdown ── */
+.countdown{text-align:center;padding:20px 16px}
+.countdown-label{font-size:10px;color:var(--gray);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px}
+.countdown-time{font-family:var(--font-head);font-size:32px;font-weight:800;color:var(--cyan);letter-spacing:3px;text-shadow:0 0 20px rgba(0,240,255,0.3)}
+.countdown-sub{font-size:10px;color:var(--gray);margin-top:6px;letter-spacing:1px}
+
+/* ── Prize pool ── */
+.prize-section{display:grid;grid-template-columns:1fr;gap:8px}
+.prize-total{text-align:center;padding:12px;background:rgba(0,240,255,0.04);border-radius:8px;border:1px solid rgba(0,240,255,0.1)}
+.prize-total .label{font-size:9px;color:var(--gray);letter-spacing:2px;text-transform:uppercase}
+.prize-total .amount{font-family:var(--font-head);font-size:22px;font-weight:800;color:var(--yellow);margin-top:4px}
+.prize-total .entries{font-size:10px;color:var(--gray);margin-top:4px}
+
+.prize-breakdown{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.prize-place{text-align:center;padding:10px 6px;border-radius:8px;background:rgba(255,255,255,0.02);border:1px solid var(--border)}
+.prize-place .rank{font-family:var(--font-head);font-size:12px;font-weight:800}
+.prize-place .pct{font-size:9px;color:var(--gray);margin:2px 0}
+.prize-place .payout{font-family:var(--font-head);font-size:11px;font-weight:700;color:var(--white)}
+.prize-place:nth-child(1) .rank{color:var(--gold)}
+.prize-place:nth-child(1){border-color:rgba(255,215,0,0.15)}
+.prize-place:nth-child(2) .rank{color:var(--silver)}
+.prize-place:nth-child(2){border-color:rgba(192,192,192,0.12)}
+.prize-place:nth-child(3) .rank{color:var(--bronze)}
+.prize-place:nth-child(3){border-color:rgba(205,127,50,0.12)}
+
+/* ── Buy-in info ── */
+.buyin-info{font-size:11px;line-height:1.7;color:var(--gray)}
+.buyin-info strong{color:var(--white)}
+.buyin-info .addr{font-size:9px;color:var(--cyan);word-break:break-all;display:block;margin:6px 0;padding:8px;background:rgba(0,240,255,0.04);border-radius:6px;border:1px solid rgba(0,240,255,0.1);cursor:pointer;transition:background 0.2s}
+.buyin-info .addr:hover{background:rgba(0,240,255,0.08)}
+.buyin-info .addr .copy-hint{font-size:8px;color:var(--gray);display:block;margin-top:3px}
+
+/* ── Steps ── */
+.steps{display:flex;flex-direction:column;gap:10px}
+.step{display:flex;gap:10px;align-items:flex-start}
+.step-num{font-family:var(--font-head);font-size:11px;font-weight:800;color:var(--cyan);background:rgba(0,240,255,0.1);width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.step-text{font-size:11px;color:var(--gray);line-height:1.6}
+.step-text strong{color:var(--white)}
+
+/* ── Input / Buttons ── */
+.input-group{display:flex;gap:8px;margin-top:10px}
+.input-field{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--white);font-family:var(--font-mono);font-size:11px;outline:none;transition:border-color 0.2s}
+.input-field:focus{border-color:rgba(0,240,255,0.3)}
+.input-field::placeholder{color:rgba(119,119,144,0.5)}
+.btn{padding:10px 16px;border:none;border-radius:8px;font-family:var(--font-head);font-size:11px;font-weight:700;cursor:pointer;transition:all 0.2s;letter-spacing:1px}
+.btn-primary{background:var(--cyan);color:var(--bg);box-shadow:0 0 15px rgba(0,240,255,0.2)}
+.btn-primary:hover{box-shadow:0 0 25px rgba(0,240,255,0.4);transform:translateY(-1px)}
+.btn-primary:disabled{opacity:0.4;cursor:not-allowed;transform:none;box-shadow:none}
+.btn-secondary{background:rgba(255,255,255,0.06);color:var(--white);border:1px solid var(--border)}
+.btn-secondary:hover{background:rgba(255,255,255,0.1)}
+.btn-green{background:var(--green);color:var(--bg)}
+.btn-green:hover{box-shadow:0 0 20px rgba(0,255,136,0.3)}
+
+/* ── Status ── */
+.status-msg{font-size:10px;padding:8px 10px;border-radius:6px;margin-top:8px;display:none}
+.status-msg.show{display:block}
+.status-msg.error{background:rgba(255,51,85,0.1);color:var(--red);border:1px solid rgba(255,51,85,0.15)}
+.status-msg.success{background:rgba(0,255,136,0.08);color:var(--green);border:1px solid rgba(0,255,136,0.15)}
+.status-msg.info{background:rgba(0,240,255,0.06);color:var(--cyan);border:1px solid rgba(0,240,255,0.1)}
+
+/* ── Leaderboard ── */
+.lb-table{width:100%;border-collapse:collapse}
+.lb-table th{font-family:var(--font-head);font-size:9px;font-weight:600;color:var(--gray);letter-spacing:1px;text-transform:uppercase;padding:6px 4px;text-align:left;border-bottom:1px solid var(--border)}
+.lb-table td{font-size:11px;padding:8px 4px;border-bottom:1px solid rgba(255,255,255,0.03)}
+.lb-table tr:hover td{background:rgba(0,240,255,0.02)}
+.lb-rank{font-family:var(--font-head);font-weight:700;width:30px}
+.lb-rank.r1{color:var(--gold)}
+.lb-rank.r2{color:var(--silver)}
+.lb-rank.r3{color:var(--bronze)}
+.lb-name{color:var(--white)}
+.lb-score{font-family:var(--font-head);color:var(--cyan);text-align:right;font-weight:600}
+.lb-grade{text-align:center;font-size:10px}
+.lb-empty{text-align:center;padding:24px;color:var(--gray);font-size:11px}
+
+/* ── Player status banner ── */
+.player-banner{display:none;text-align:center;padding:12px;background:rgba(0,255,136,0.05);border-radius:8px;border:1px solid rgba(0,255,136,0.15)}
+.player-banner.show{display:block}
+.player-banner .pb-rank{font-family:var(--font-head);font-size:18px;font-weight:800;color:var(--green)}
+.player-banner .pb-score{font-size:11px;color:var(--gray);margin-top:2px}
+.player-banner .pb-label{font-size:9px;color:var(--gray);letter-spacing:1px;text-transform:uppercase}
+
+/* ── Registered state ── */
+.registered-badge{display:inline-flex;align-items:center;gap:4px;background:rgba(0,255,136,0.1);color:var(--green);padding:4px 10px;border-radius:20px;font-size:10px;font-weight:600;letter-spacing:1px}
+.registered-badge::before{content:'✓';font-weight:800}
+
+/* ── Registration flow steps ── */
+.flow-section{display:none}
+.flow-section.active{display:block}
+
+/* ── Play button ── */
+.play-btn{display:block;width:100%;padding:14px;text-align:center;text-decoration:none;font-family:var(--font-head);font-size:13px;font-weight:700;letter-spacing:2px;color:var(--bg);background:linear-gradient(135deg,var(--cyan),var(--green));border-radius:10px;box-shadow:0 0 25px rgba(0,240,255,0.2);transition:all 0.2s}
+.play-btn:hover{box-shadow:0 0 40px rgba(0,240,255,0.4);transform:translateY(-2px)}
+
+/* ── Footer ── */
+.footer{text-align:center;padding:20px;font-size:9px;color:rgba(119,119,144,0.5)}
+.footer a{color:var(--cyan);text-decoration:none;opacity:0.5}
+.footer a:hover{opacity:1}
+
+/* ── Toast ── */
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-100px);background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 18px;font-size:11px;color:var(--white);z-index:9999;transition:transform 0.3s cubic-bezier(0.16,1,0.3,1);pointer-events:none;white-space:nowrap}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast.success{border-color:rgba(0,255,136,0.3);color:var(--green)}
+
+/* ── Spinner ── */
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(0,240,255,0.2);border-top-color:var(--cyan);border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Responsive ── */
+@media(max-width:400px){
+  .countdown-time{font-size:26px}
+  .prize-total .amount{font-size:18px}
+}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <img src="logo.png" alt="TAP RUSH">
+  <h1>DAILY TOURNAMENT</h1>
+</div>
+
+<div class="main">
+
+  <!-- ═══ Countdown ═══ -->
+  <div class="panel panel-glow countdown" id="countdown-panel">
+    <div class="countdown-label">Tournament Ends In</div>
+    <div class="countdown-time" id="countdown-timer">--:--:--</div>
+    <div class="countdown-sub" id="countdown-id">Loading...</div>
+  </div>
+
+  <!-- ═══ Prize Pool ═══ -->
+  <div class="panel" id="prize-panel">
+    <div class="panel-title">Prize Pool</div>
+    <div class="prize-section">
+      <div class="prize-total">
+        <div class="label">Total Pool</div>
+        <div class="amount" id="prize-pool">0 RUSH</div>
+        <div class="entries" id="entry-count">0 players entered</div>
+      </div>
+      <div class="prize-breakdown">
+        <div class="prize-place">
+          <div class="rank">1ST</div>
+          <div class="pct">70%</div>
+          <div class="payout" id="payout-1st">0</div>
+        </div>
+        <div class="prize-place">
+          <div class="rank">2ND</div>
+          <div class="pct">20%</div>
+          <div class="payout" id="payout-2nd">0</div>
+        </div>
+        <div class="prize-place">
+          <div class="rank">3RD</div>
+          <div class="pct">10%</div>
+          <div class="payout" id="payout-3rd">0</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Player Status (shown when registered) ═══ -->
+  <div class="player-banner" id="player-banner">
+    <div class="pb-label">Your Rank</div>
+    <div class="pb-rank" id="player-rank">#--</div>
+    <div class="pb-score" id="player-score">Best: -- pts</div>
+  </div>
+
+  <!-- ═══ Registration Flow ═══ -->
+  <div class="panel" id="register-panel">
+    <div class="panel-title">Enter Tournament</div>
+
+    <!-- Step 1: Wallet -->
+    <div class="flow-section active" id="flow-wallet">
+      <div class="steps">
+        <div class="step">
+          <span class="step-num">1</span>
+          <span class="step-text">Enter your <strong>Solana wallet address</strong></span>
+        </div>
+      </div>
+      <div class="input-group">
+        <input type="text" id="wallet-input" class="input-field" placeholder="Paste Solana address" autocomplete="off" spellcheck="false">
+        <button class="btn btn-primary" id="wallet-btn" onclick="checkWallet()">GO</button>
+      </div>
+      <div class="status-msg" id="wallet-status"></div>
+    </div>
+
+    <!-- Step 2: Deposit -->
+    <div class="flow-section" id="flow-deposit">
+      <div class="steps">
+        <div class="step">
+          <span class="step-num">2</span>
+          <span class="step-text">Send <strong>1,000,000 RUSH</strong> to the tournament wallet:</span>
+        </div>
+      </div>
+      <div class="buyin-info">
+        <span class="addr" id="deposit-addr" onclick="copyAddr()">
+          7rH4WYQ9Y7UjmizQxvHmpgLyvsBZfArweE48DWrcyoXu
+          <span class="copy-hint">tap to copy</span>
+        </span>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn btn-primary" id="check-deposit-btn" onclick="checkDeposit()" style="flex:1">
+          CHECK DEPOSIT
+        </button>
+      </div>
+      <div class="status-msg" id="deposit-status"></div>
+    </div>
+
+    <!-- Step 3: Confirm registration -->
+    <div class="flow-section" id="flow-confirm">
+      <div class="steps">
+        <div class="step">
+          <span class="step-num">3</span>
+          <span class="step-text"><strong>Deposit found!</strong> Set an optional display name and confirm entry.</span>
+        </div>
+      </div>
+      <div class="input-group" style="margin-bottom:8px">
+        <input type="text" id="name-input" class="input-field" placeholder="Display name (optional)" maxlength="20">
+        <button class="btn btn-green" id="confirm-btn" onclick="confirmRegistration()">ENTER</button>
+      </div>
+      <div class="status-msg" id="confirm-status"></div>
+    </div>
+
+    <!-- Registered state -->
+    <div class="flow-section" id="flow-registered">
+      <div style="text-align:center">
+        <span class="registered-badge">REGISTERED</span>
+        <p style="font-size:11px;color:var(--gray);margin-top:10px;line-height:1.6">
+          You're in! Play TAP RUSH and your <strong style="color:var(--white)">best score</strong> counts toward the leaderboard.
+        </p>
+        <a href="https://taprush.fun" target="_blank" rel="noopener noreferrer" class="play-btn" style="margin-top:12px" id="play-link">
+          ▶ PLAY TAP RUSH
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ How It Works ═══ -->
+  <div class="panel">
+    <div class="panel-title">How It Works</div>
+    <div class="steps">
+      <div class="step">
+        <span class="step-num">1</span>
+        <span class="step-text"><strong>Buy-in:</strong> Send 1,000,000 RUSH (~$2.68) to the tournament wallet</span>
+      </div>
+      <div class="step">
+        <span class="step-num">2</span>
+        <span class="step-text"><strong>Play:</strong> Your best TAP RUSH score during the tournament counts</span>
+      </div>
+      <div class="step">
+        <span class="step-num">3</span>
+        <span class="step-text"><strong>Win:</strong> Top 3 split the pool — 70% / 20% / 10% paid in RUSH</span>
+      </div>
+    </div>
+    <div style="margin-top:12px;font-size:10px;color:var(--gray);line-height:1.6">
+      Tournaments reset daily at <strong style="color:var(--white)">3:00 PM PST</strong>. New tournament, new pool, new winners every day. Buy RUSH on <a href="https://play.fun/s/rl009ai" target="_blank" rel="noopener noreferrer" style="color:var(--cyan)">play.fun</a>.
+    </div>
+  </div>
+
+  <!-- ═══ Leaderboard ═══ -->
+  <div class="panel" id="leaderboard-panel">
+    <div class="panel-title">Leaderboard</div>
+    <div id="leaderboard-content">
+      <div class="lb-empty">No entries yet. Be the first!</div>
+    </div>
+  </div>
+
+  <!-- ═══ Footer ═══ -->
+  <div class="footer">
+    <div>TAP RUSH © 2026 · <a href="https://taprush.fun" target="_blank" rel="noopener noreferrer">taprush.fun</a> · <a href="https://x.com/taprushdotfun" target="_blank" rel="noopener noreferrer">@taprushdotfun</a></div>
+    <div style="margin-top:6px"><a href="https://www.perplexity.ai/computer" target="_blank" rel="noopener noreferrer">Created with Perplexity Computer</a></div>
+  </div>
+
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══════════════════════════════════════════
+   TAP RUSH — Tournament Frontend
+   ═══════════════════════════════════════════ */
+
+const API = window.location.origin + '/tournament';
+let currentTournament = null;
+let playerAddress = '';
+let depositTxSig = '';
+
+// ── Init ──
+document.addEventListener('DOMContentLoaded', () => {
+  loadTournament();
+  // Refresh every 30s
+  setInterval(loadTournament, 30000);
+
+  // Check URL params for address
+  const params = new URLSearchParams(location.search);
+  const savedAddr = params.get('addr');
+  if (savedAddr) {
+    playerAddress = savedAddr;
+    document.getElementById('wallet-input').value = savedAddr;
+    // Auto-check status
+    setTimeout(() => checkWallet(), 500);
+  }
+});
+
+// ── API helpers ──
+async function apiGet(path) {
+  const res = await fetch(`${API}${path}`);
+  return res.json();
+}
+async function apiPost(path, body) {
+  const res = await fetch(`${API}${path}`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(body)
+  });
+  return res.json();
+}
+
+// ── Load tournament data ──
+async function loadTournament() {
+  try {
+    const data = await apiGet('/tournament');
+    currentTournament = data;
+    renderTournament(data);
+    if (playerAddress) checkPlayerStatus();
+  } catch(e) {
+    console.error('Failed to load tournament:', e);
+  }
+}
+
+function renderTournament(t) {
+  if (!t) return;
+  // Countdown
+  updateCountdown(t.time_remaining_seconds || 0);
+  document.getElementById('countdown-id').textContent = t.tournament_id || 'Loading...';
+
+  // Prize pool
+  document.getElementById('prize-pool').textContent = t.prize_pool_display || '0 RUSH';
+  const entries = t.entries || 0;
+  document.getElementById('entry-count').textContent = `${entries} player${entries !== 1 ? 's' : ''} entered`;
+  const payouts = t.payouts || {};
+  document.getElementById('payout-1st').textContent = payouts['1st'] || '0 RUSH';
+  document.getElementById('payout-2nd').textContent = payouts['2nd'] || '0 RUSH';
+  document.getElementById('payout-3rd').textContent = payouts['3rd'] || '0 RUSH';
+
+  // Leaderboard
+  renderLeaderboard(t.leaderboard || []);
+}
+
+// ── Countdown timer ──
+let countdownInterval = null;
+let countdownSeconds = 0;
+
+function updateCountdown(seconds) {
+  countdownSeconds = seconds;
+  if (countdownInterval) clearInterval(countdownInterval);
+  renderCountdown();
+  countdownInterval = setInterval(() => {
+    countdownSeconds = Math.max(0, countdownSeconds - 1);
+    renderCountdown();
+    if (countdownSeconds <= 0) clearInterval(countdownInterval);
+  }, 1000);
+}
+
+function renderCountdown() {
+  if (!countdownSeconds || isNaN(countdownSeconds)) {
+    document.getElementById('countdown-timer').textContent = '00:00:00';
+    return;
+  }
+  const h = Math.floor(countdownSeconds / 3600);
+  const m = Math.floor((countdownSeconds % 3600) / 60);
+  const s = countdownSeconds % 60;
+  const pad = n => String(n).padStart(2, '0');
+  document.getElementById('countdown-timer').textContent = `${pad(h)}:${pad(m)}:${pad(s)}`;
+}
+
+// ── Leaderboard ──
+function renderLeaderboard(leaders) {
+  const container = document.getElementById('leaderboard-content');
+  if (!leaders || leaders.length === 0) {
+    container.innerHTML = '<div class="lb-empty">No entries yet. Be the first!</div>';
+    return;
+  }
+
+  const gradeEmoji = g => {
+    const map = {'S+':'💎','S':'⭐','A+':'🔥','A':'🔥','B+':'✨','B':'✨','C+':'👍','C':'👍','D':'😐','F':'💀'};
+    return map[g] || '';
+  };
+
+  let html = `<table class="lb-table">
+    <thead><tr>
+      <th>#</th><th>Player</th><th style="text-align:center">Grade</th><th style="text-align:right">Score</th>
+    </tr></thead><tbody>`;
+
+  leaders.forEach((p, i) => {
+    const rankClass = i < 3 ? ` r${i+1}` : '';
+    const name = p.display_name || p.short_address;
+    const isYou = p.address === playerAddress;
+    const youTag = isYou ? ' <span style="color:var(--green);font-size:9px">(YOU)</span>' : '';
+    html += `<tr${isYou ? ' style="background:rgba(0,255,136,0.03)"' : ''}>
+      <td class="lb-rank${rankClass}">${p.rank}</td>
+      <td class="lb-name">${name}${youTag}</td>
+      <td class="lb-grade">${gradeEmoji(p.best_grade)} ${p.best_grade}</td>
+      <td class="lb-score">${p.best_score.toLocaleString()}</td>
+    </tr>`;
+  });
+
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+// ── Registration Flow ──
+function showFlow(stepId) {
+  document.querySelectorAll('.flow-section').forEach(el => el.classList.remove('active'));
+  document.getElementById(stepId).classList.add('active');
+}
+
+function showStatus(id, type, msg) {
+  const el = document.getElementById(id);
+  el.className = `status-msg show ${type}`;
+  el.textContent = msg;
+}
+function hideStatus(id) {
+  document.getElementById(id).className = 'status-msg';
+}
+
+// Step 1: Check wallet
+async function checkWallet() {
+  const addr = document.getElementById('wallet-input').value.trim();
+  if (!addr || addr.length < 32) {
+    showStatus('wallet-status', 'error', 'Enter a valid Solana address');
+    return;
+  }
+
+  const btn = document.getElementById('wallet-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+  hideStatus('wallet-status');
+
+  try {
+    playerAddress = addr;
+    // Address stored in memory only
+
+    // Check if already registered
+    const status = await apiGet(`/player-status?address=${addr}`);
+    if (status.registered) {
+      showFlow('flow-registered');
+      showPlayerBanner(status);
+      loadTournament(); // refresh leaderboard
+      return;
+    }
+
+    // Move to deposit step
+    showFlow('flow-deposit');
+  } catch(e) {
+    showStatus('wallet-status', 'error', 'Error checking wallet. Try again.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'GO';
+  }
+}
+
+// Step 2: Check deposit
+async function checkDeposit() {
+  const btn = document.getElementById('check-deposit-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> CHECKING...';
+  hideStatus('deposit-status');
+
+  try {
+    const result = await apiPost('/check-deposit', { address: playerAddress });
+
+    if (result.deposit_confirmed) {
+      depositTxSig = result.tx_signature;
+      showStatus('deposit-status', 'success', 'Deposit found! Proceed to confirm entry.');
+      setTimeout(() => showFlow('flow-confirm'), 800);
+    } else {
+      showStatus('deposit-status', 'info', result.reason || 'No deposit found yet. Send 1M RUSH and try again.');
+    }
+  } catch(e) {
+    showStatus('deposit-status', 'error', 'Error checking deposit. Try again.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'CHECK DEPOSIT';
+  }
+}
+
+// Step 3: Confirm registration
+async function confirmRegistration() {
+  const btn = document.getElementById('confirm-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+  hideStatus('confirm-status');
+
+  const name = document.getElementById('name-input').value.trim();
+
+  try {
+    const result = await apiPost('/register', {
+      address: playerAddress,
+      display_name: name,
+      tx_signature: depositTxSig
+    });
+
+    if (result.success) {
+      showFlow('flow-registered');
+      showToast('🎉 Registered! Go play TAP RUSH!', 'success');
+      loadTournament();
+      checkPlayerStatus();
+    } else {
+      showStatus('confirm-status', 'error', result.error || 'Registration failed');
+    }
+  } catch(e) {
+    showStatus('confirm-status', 'error', 'Error registering. Try again.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'ENTER';
+  }
+}
+
+// ── Player Status ──
+async function checkPlayerStatus() {
+  if (!playerAddress) return;
+  try {
+    const status = await apiGet(`/player-status?address=${playerAddress}`);
+    if (status.registered) {
+      showFlow('flow-registered');
+      showPlayerBanner(status);
+    }
+  } catch(e) {}
+}
+
+function showPlayerBanner(status) {
+  const banner = document.getElementById('player-banner');
+  banner.classList.add('show');
+  document.getElementById('player-rank').textContent = `#${status.rank}`;
+  document.getElementById('player-score').textContent = `Best: ${(status.best_score || 0).toLocaleString()} pts · ${status.total_games || 0} games`;
+  // Update play link with wallet address for tournament score tracking
+  const playLink = document.getElementById('play-link');
+  if (playLink && playerAddress) {
+    playLink.href = `https://taprush.fun?t_addr=${encodeURIComponent(playerAddress)}`;
+  }
+}
+
+// ── Utils ──
+function copyAddr() {
+  const addr = '7rH4WYQ9Y7UjmizQxvHmpgLyvsBZfArweE48DWrcyoXu';
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(addr);
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = addr;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  }
+  showToast('Address copied!', 'success');
+}
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast show ${type || ''}`;
+  setTimeout(() => t.className = 'toast', 2500);
+}
+
+// Key enter on wallet input
+document.getElementById('wallet-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') checkWallet();
+});
+</script>
+
+</body>
+</html>

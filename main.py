@@ -17,9 +17,12 @@ import hashlib
 from datetime import datetime, timezone, timedelta
 from contextlib import asynccontextmanager
 
+from pathlib import Path
+
 from fastapi import FastAPI, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 
 # ══════════════════════════════════════════════
 #  CONFIG
@@ -854,6 +857,36 @@ def vote_results(poll_id: str = ""):
     results = get_poll_results(db, poll_id)
     db.close()
     return results
+
+
+# ══════════════════════════════════════════════
+#  STATIC PAGES
+# ══════════════════════════════════════════════
+STATIC_DIR = Path(__file__).parent / "static"
+
+@app.get("/vote-page")
+@app.get("/vote-page/{path:path}")
+def serve_vote_page(path: str = "index.html"):
+    if path == "" or path == "/":
+        path = "index.html"
+    file_path = STATIC_DIR / "vote" / path
+    if file_path.exists() and file_path.is_file():
+        media_types = {".html": "text/html", ".css": "text/css", ".js": "application/javascript", ".png": "image/png"}
+        suffix = file_path.suffix
+        return FileResponse(file_path, media_type=media_types.get(suffix, "application/octet-stream"))
+    return JSONResponse(status_code=404, content={"error": "Not found"})
+
+@app.get("/dev")
+@app.get("/dev/{path:path}")
+def serve_dev_page(path: str = "index.html"):
+    if path == "" or path == "/":
+        path = "index.html"
+    file_path = STATIC_DIR / "dev" / path
+    if file_path.exists() and file_path.is_file():
+        media_types = {".html": "text/html", ".css": "text/css", ".js": "application/javascript", ".png": "image/png"}
+        suffix = file_path.suffix
+        return FileResponse(file_path, media_type=media_types.get(suffix, "application/octet-stream"))
+    return JSONResponse(status_code=404, content={"error": "Not found"})
 
 
 # ══════════════════════════════════════════════

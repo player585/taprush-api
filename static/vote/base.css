@@ -1,0 +1,182 @@
+/* ========================================
+   RUSH VOTE — Base CSS / Design Tokens
+   Neon Cyberpunk Theme (Dark Only)
+   ======================================== */
+
+:root {
+  /* Type Scale — Fluid with clamp() */
+  --text-xs:   clamp(0.75rem,  0.7rem  + 0.25vw, 0.875rem);
+  --text-sm:   clamp(0.875rem, 0.8rem  + 0.35vw, 1rem);
+  --text-base: clamp(1rem,     0.9rem  + 0.5vw,  1.125rem);
+  --text-lg:   clamp(1.125rem, 0.95rem + 0.85vw, 1.5rem);
+  --text-xl:   clamp(1.5rem,   1rem    + 1.5vw,  2.25rem);
+  --text-2xl:  clamp(2rem,     1.2rem  + 2.5vw,  3.5rem);
+  --text-3xl:  clamp(2.5rem,   1rem    + 4vw,    5rem);
+
+  /* 4px Spacing System */
+  --space-1:  0.25rem;
+  --space-2:  0.5rem;
+  --space-3:  0.75rem;
+  --space-4:  1rem;
+  --space-5:  1.25rem;
+  --space-6:  1.5rem;
+  --space-8:  2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-20: 5rem;
+  --space-24: 6rem;
+  --space-32: 8rem;
+
+  /* ── Neon Cyberpunk Palette ── */
+
+  /* Backgrounds */
+  --color-bg:               #0a0a0f;
+  --color-bg-gradient:      linear-gradient(180deg, #0a0a0f 0%, #0d0d18 50%, #0a0a0f 100%);
+  --color-surface:          rgba(15, 15, 25, 0.8);
+  --color-surface-2:        rgba(20, 20, 35, 0.6);
+  --color-surface-offset:   rgba(10, 10, 20, 0.9);
+  --color-divider:          rgba(0, 240, 255, 0.08);
+  --color-border:           rgba(0, 240, 255, 0.12);
+  --color-border-hover:     rgba(0, 240, 255, 0.25);
+
+  /* Text */
+  --color-text:             #e8e8f0;
+  --color-text-muted:       #8888a0;
+  --color-text-faint:       #55556a;
+  --color-text-inverse:     #0a0a0f;
+
+  /* Primary Accent — Neon Cyan */
+  --color-primary:          #00f0ff;
+  --color-primary-hover:    #33f5ff;
+  --color-primary-active:   #00c8d4;
+  --color-primary-glow:     rgba(0, 240, 255, 0.3);
+  --color-primary-subtle:   rgba(0, 240, 255, 0.08);
+
+  /* Secondary Accent — Neon Magenta */
+  --color-secondary:        #ff00ff;
+  --color-secondary-hover:  #ff44ff;
+  --color-secondary-active: #cc00cc;
+  --color-secondary-glow:   rgba(255, 0, 255, 0.25);
+  --color-secondary-subtle: rgba(255, 0, 255, 0.08);
+
+  /* Success — Neon Green */
+  --color-success:          #00ff88;
+  --color-success-hover:    #33ffaa;
+  --color-success-glow:     rgba(0, 255, 136, 0.25);
+  --color-success-subtle:   rgba(0, 255, 136, 0.08);
+
+  /* Error — Neon Red */
+  --color-error:            #ff3366;
+  --color-error-hover:      #ff5577;
+  --color-error-glow:       rgba(255, 51, 102, 0.25);
+
+  /* Warning */
+  --color-warning:          #ffaa00;
+
+  /* Radius */
+  --radius-sm:   0.375rem;
+  --radius-md:   0.5rem;
+  --radius-lg:   0.75rem;
+  --radius-xl:   1rem;
+  --radius-full: 9999px;
+
+  /* Transitions */
+  --transition-interactive: 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-slow:        400ms cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Shadows — neon-tinted */
+  --shadow-sm:  0 1px 4px rgba(0, 0, 0, 0.4);
+  --shadow-md:  0 4px 16px rgba(0, 0, 0, 0.5);
+  --shadow-lg:  0 12px 40px rgba(0, 0, 0, 0.6);
+  --shadow-glow-cyan:    0 0 20px rgba(0, 240, 255, 0.15), 0 0 60px rgba(0, 240, 255, 0.05);
+  --shadow-glow-magenta: 0 0 20px rgba(255, 0, 255, 0.15), 0 0 60px rgba(255, 0, 255, 0.05);
+  --shadow-glow-green:   0 0 20px rgba(0, 255, 136, 0.15), 0 0 60px rgba(0, 255, 136, 0.05);
+
+  /* Content widths */
+  --content-narrow:  640px;
+  --content-default: 720px;
+  --content-wide:    960px;
+
+  /* Font families */
+  --font-display: 'Orbitron', 'Inter', system-ui, sans-serif;
+  --font-body:    'Inter', system-ui, sans-serif;
+}
+
+/* ── Reset & Base ── */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  -moz-text-size-adjust: none;
+  -webkit-text-size-adjust: none;
+  text-size-adjust: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  scroll-behavior: smooth;
+  scroll-padding-top: var(--space-16);
+}
+
+body {
+  min-height: 100dvh;
+  line-height: 1.6;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  background-color: var(--color-bg);
+  background-image: var(--color-bg-gradient);
+  background-attachment: fixed;
+}
+
+img, picture, video, canvas, svg { display: block; max-width: 100%; height: auto; }
+ul[role="list"], ol[role="list"] { list-style: none; }
+input, button, textarea, select { font: inherit; color: inherit; }
+
+h1, h2, h3, h4, h5, h6 {
+  text-wrap: balance;
+  line-height: 1.15;
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+p, li, figcaption { text-wrap: pretty; max-width: 72ch; }
+
+::selection {
+  background: rgba(0, 240, 255, 0.25);
+  color: var(--color-text);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+button { cursor: pointer; background: none; border: none; }
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: color var(--transition-interactive);
+}
+a:hover {
+  color: var(--color-primary-hover);
+  text-shadow: 0 0 8px var(--color-primary-glow);
+}
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0;
+}

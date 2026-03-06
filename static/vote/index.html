@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TAP RUSH — Community Vote</title>
+  <meta name="description" content="Vote on TAP RUSH governance proposals. Hold $RUSH tokens to participate.">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="base.css">
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Favicon -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230a0a0f'/><text x='16' y='22' text-anchor='middle' font-family='sans-serif' font-weight='bold' font-size='14' fill='%2300f0ff'>R</text></svg>">
+</head>
+<body>
+  <div class="page-wrapper">
+    <main class="page-content">
+
+      <!-- ═══ HEADER ═══ -->
+      <header class="site-header">
+        <div class="logo-container">
+          <img src="logo.png" alt="TAP RUSH" class="logo-img">
+          <span class="tagline">Community Governance</span>
+        </div>
+      </header>
+
+      <!-- ═══ ENTER ADDRESS ═══ -->
+      <section id="step-address" class="glass-panel" aria-label="Enter wallet">
+        <div class="step-header">
+          <span class="step-number">1</span>
+          <h2 class="step-title">Enter Your Wallet</h2>
+        </div>
+        <p class="step-desc">Paste your Solana address to get started.</p>
+        <div class="input-group">
+          <input type="text" id="wallet-input" class="input-field" placeholder="Paste Solana address" autocomplete="off" spellcheck="false">
+          <button id="go-btn" class="btn-primary" type="button">Go</button>
+        </div>
+        <div id="address-error" class="status-msg status-msg--error hidden"></div>
+      </section>
+
+      <!-- ═══ DEPOSIT & WAIT ═══ -->
+      <section id="step-deposit" class="glass-panel glass-panel--glow-magenta hidden" aria-label="Deposit">
+        <div class="step-header">
+          <span class="step-number">2</span>
+          <h2 class="step-title">Send 1 RUSH to Vote</h2>
+        </div>
+        <p class="step-desc">Send <strong>1 RUSH</strong> to the address below. The page will update automatically once your deposit is confirmed.</p>
+
+        <div class="deposit-address-box">
+          <div class="deposit-label">Deposit Address</div>
+          <div class="deposit-addr-row">
+            <code id="deposit-addr" class="deposit-addr">7rH4WYQ9Y7UjmizQxvHmpgLyvsBZfArweE48DWrcyoXu</code>
+            <button id="copy-btn" class="btn-copy" type="button" aria-label="Copy address">Copy</button>
+          </div>
+        </div>
+
+        <div class="deposit-info">
+          <div class="info-item">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+            <span>Send exactly <strong>1 RUSH</strong> — this is your entry fee</span>
+          </div>
+          <div class="info-item">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            <span>Your <strong>full RUSH balance</strong> = your voting power</span>
+          </div>
+        </div>
+
+        <div id="deposit-status" class="deposit-waiting">
+          <span class="spinner"></span>
+          <span>Waiting for deposit...</span>
+        </div>
+      </section>
+
+      <!-- ═══ VOTE ═══ -->
+      <section id="step-vote" class="glass-panel glass-panel--glow-cyan hidden" aria-label="Cast vote">
+        <div class="step-header">
+          <span class="step-number">3</span>
+          <h2 class="step-title">Cast Your Vote</h2>
+        </div>
+
+        <div class="vote-power-box">
+          <div class="vote-power-label">Your Voting Power</div>
+          <div class="vote-power-value"><span id="vote-power">0</span> RUSH</div>
+          <a id="solscan-link" class="solscan-link" href="#" target="_blank" rel="noopener noreferrer">Verify on Solscan ↗</a>
+        </div>
+
+        <div class="poll-question">Should SOL be added as a tradable chart alongside BTC?</div>
+
+        <div class="vote-buttons">
+          <button class="vote-btn vote-btn--yes" data-vote="yes">
+            YES
+            <span class="vote-btn-label">Add SOL</span>
+          </button>
+          <button class="vote-btn vote-btn--no" data-vote="no">
+            NO
+            <span class="vote-btn-label">Keep BTC Only</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- ═══ ALREADY VOTED ═══ -->
+      <section id="step-done" class="glass-panel glass-panel--glow-cyan hidden" aria-label="Vote recorded">
+        <div class="voted-check">✓</div>
+        <div class="voted-heading">Vote Recorded</div>
+        <div id="voted-detail"></div>
+      </section>
+
+      <!-- ═══ RESULTS (always visible) ═══ -->
+      <section class="glass-panel" aria-label="Results">
+        <div class="results-header">
+          <span class="results-title">Results</span>
+          <span class="results-subtitle">Weighted by RUSH balance</span>
+        </div>
+        <div class="results-bars">
+          <div class="result-row">
+            <div class="result-label result-label--yes">
+              <span>Yes — Add SOL</span>
+              <span class="result-pct" id="yes-pct">0%</span>
+            </div>
+            <div class="result-bar-track">
+              <div class="result-bar-fill result-bar-fill--yes" id="yes-bar" style="width: 0%"></div>
+            </div>
+            <div class="result-meta">
+              <span class="result-count" id="yes-count">0 RUSH</span>
+              <span class="result-voters" id="yes-voters">0 voters</span>
+            </div>
+          </div>
+          <div class="result-row">
+            <div class="result-label result-label--no">
+              <span>No — Keep BTC Only</span>
+              <span class="result-pct" id="no-pct">0%</span>
+            </div>
+            <div class="result-bar-track">
+              <div class="result-bar-fill result-bar-fill--no" id="no-bar" style="width: 0%"></div>
+            </div>
+            <div class="result-meta">
+              <span class="result-count" id="no-count">0 RUSH</span>
+              <span class="result-voters" id="no-voters">0 voters</span>
+            </div>
+          </div>
+        </div>
+        <div class="results-total">
+          <div>Total weight: <span id="total-votes">0 RUSH</span></div>
+          <div class="results-total-voters"><span id="total-voters">0 voters</span></div>
+        </div>
+      </section>
+
+      <!-- ═══ FOOTER ═══ -->
+      <footer class="site-footer">
+        <div class="footer-powered">
+          Powered by <a href="https://play.fun/s/rl009ai" target="_blank" rel="noopener noreferrer">$RUSH</a>
+        </div>
+        <span>TAP RUSH — Tap. Trade. Win.</span>
+      </footer>
+
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
