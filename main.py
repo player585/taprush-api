@@ -21,7 +21,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, HTMLResponse, FileResponse
+from fastapi.responses import JSONResponse, HTMLResponse, FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 import crons
@@ -919,6 +919,11 @@ async def cron_trigger(request: Request):
 STATIC_DIR = Path(__file__).parent / "static"
 
 @app.get("/vote-page")
+def vote_page_redirect():
+    """Redirect /vote-page to /vote-page/ so relative asset paths resolve correctly."""
+    return RedirectResponse(url="/vote-page/", status_code=301)
+
+@app.get("/vote-page/")
 @app.get("/vote-page/{path:path}")
 def serve_vote_page(path: str = "index.html"):
     if path == "" or path == "/":
@@ -931,6 +936,11 @@ def serve_vote_page(path: str = "index.html"):
     return JSONResponse(status_code=404, content={"error": "Not found"})
 
 @app.get("/dev")
+def dev_page_redirect():
+    """Redirect /dev to /dev/ so relative asset paths resolve correctly."""
+    return RedirectResponse(url="/dev/", status_code=301)
+
+@app.get("/dev/")
 @app.get("/dev/{path:path}")
 def serve_dev_page(path: str = "index.html"):
     if path == "" or path == "/":

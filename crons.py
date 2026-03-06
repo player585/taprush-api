@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 #  CONFIG
 # ══════════════════════════════════════════════
 DATA_DIR = os.environ.get("DATA_DIR", ".")
-NOTIFY_EMAIL = os.environ.get("NOTIFY_EMAIL", "player585@proton.me")
+NOTIFY_EMAIL = os.environ.get("NOTIFY_EMAIL", "player585@proton.me").strip()
 
 RUSH_MINT = "ZZdUjmm6stModTGwB7yQk9RphzbV6WYHMD5Wz7oPLAY"
 DEPOSIT_ATA = "p7dB4kZFt1q7VxNd9wtNTFt7q39kiQBQTYYc4KbXXNg"
@@ -104,7 +104,7 @@ def send_email(subject, body_text):
     Railway Hobby plan blocks SMTP ports (25/465/587), so we use
     Resend's REST API over HTTPS instead. Free tier: 100 emails/day.
     """
-    api_key = os.environ.get("RESEND_API_KEY", "")
+    api_key = os.environ.get("RESEND_API_KEY", "").strip()
     if not api_key:
         logger.warning("RESEND_API_KEY not set — skipping email notification")
         _log_cron("email", "skipped", "No RESEND_API_KEY env var")
