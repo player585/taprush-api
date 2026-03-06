@@ -15,6 +15,7 @@ import os
 import time
 import logging
 import urllib.request
+import urllib.error
 from datetime import datetime, timezone
 
 # ══════════════════════════════════════════════
@@ -141,6 +142,15 @@ def send_email(subject, body_text):
         result = json.loads(resp.read().decode("utf-8"))
         logger.info(f"Email sent via Resend: {subject} (id={result.get('id','?')})")
         return True
+    except urllib.error.HTTPError as e:
+        body = ""
+        try:
+            body = e.read().decode("utf-8", errors="replace")
+        except Exception:
+            pass
+        logger.error(f"Email HTTP {e.code}: {body}")
+        _log_cron("email", "error", f"HTTP {e.code}: {body[:300]}")
+        return False
     except Exception as e:
         logger.error(f"Email failed: {e}")
         _log_cron("email", "error", str(e))
