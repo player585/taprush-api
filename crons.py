@@ -13,20 +13,15 @@ Notifications sent via Gmail SMTP.
 import json
 import os
 import time
-import smtplib
 import logging
 import urllib.request
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timezone
 
 # ══════════════════════════════════════════════
 #  CONFIG
 # ══════════════════════════════════════════════
 DATA_DIR = os.environ.get("DATA_DIR", ".")
-NOTIFY_EMAIL = os.environ.get("NOTIFY_EMAIL", "carswell585@gmail.com")
-GMAIL_USER = os.environ.get("GMAIL_USER", "")        # sender gmail address
-GMAIL_APP_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD", "")  # 16-char app password
+NOTIFY_EMAIL = os.environ.get("NOTIFY_EMAIL", "player585@proton.me")
 
 RUSH_MINT = "ZZdUjmm6stModTGwB7yQk9RphzbV6WYHMD5Wz7oPLAY"
 DEPOSIT_ATA = "p7dB4kZFt1q7VxNd9wtNTFt7q39kiQBQTYYc4KbXXNg"
@@ -104,36 +99,47 @@ def _log_cron(task_name, status, detail=""):
 #  EMAIL NOTIFICATION
 # ══════════════════════════════════════════════
 def send_email(subject, body_text):
-    """Send an email notification via Gmail SMTP."""
-    if not GMAIL_USER or not GMAIL_APP_PASSWORD:
-        logger.warning("Gmail credentials not set — skipping email notification")
-        _log_cron("email", "skipped", "No GMAIL_USER or GMAIL_APP_PASSWORD env vars")
+    """Send an email notification via Resend HTTPS API.
+    
+    Railway Hobby plan blocks SMTP ports (25/465/587), so we use
+    Resend's REST API over HTTPS instead. Free tier: 100 emails/day.
+    """
+    api_key = os.environ.get("RESEND_API_KEY", "")
+    if not api_key:
+        logger.warning("RESEND_API_KEY not set — skipping email notification")
+        _log_cron("email", "skipped", "No RESEND_API_KEY env var")
         return False
 
+    from_addr = os.environ.get("EMAIL_FROM", "TAP RUSH <onboarding@resend.dev>")
+
     try:
-        msg = MIMEMultipart("alternative")
-        msg["From"] = f"TAP RUSH Bot <{GMAIL_USER}>"
-        msg["To"] = NOTIFY_EMAIL
-        msg["Subject"] = subject
-
-        # Plain text version
-        msg.attach(MIMEText(body_text, "plain"))
-
-        # Simple HTML version (preserves line breaks)
         html_body = body_text.replace("\n", "<br>")
-        html = f"""<html><body style="font-family: monospace; font-size: 14px; padding: 16px;">
+        html = f"""<html><body style="font-family: monospace; font-size: 14px; padding: 16px; background: #111; color: #eee;">
         <h2 style="color: #e6b800;">{subject}</h2>
         <div>{html_body}</div>
         <hr style="margin-top: 24px; border-color: #333;">
         <p style="color: #888; font-size: 12px;">TAP RUSH Monitoring — Railway</p>
         </body></html>"""
-        msg.attach(MIMEText(html, "html"))
 
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15) as server:
-            server.login(GMAIL_USER, GMAIL_APP_PASSWORD)
-            server.sendmail(GMAIL_USER, NOTIFY_EMAIL, msg.as_string())
+        payload = json.dumps({
+            "from": from_addr,
+            "to": [NOTIFY_EMAIL],
+            "subject": subject,
+            "html": html,
+            "text": body_text
+        }).encode("utf-8")
 
-        logger.info(f"Email sent: {subject}")
+        req = urllib.request.Request(
+            "https://api.resend.com/emails",
+            data=payload,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_key}"
+            }
+        )
+        resp = urllib.request.urlopen(req, timeout=15)
+        result = json.loads(resp.read().decode("utf-8"))
+        logger.info(f"Email sent via Resend: {subject} (id={result.get('id','?')})")
         return True
     except Exception as e:
         logger.error(f"Email failed: {e}")
