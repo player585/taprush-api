@@ -628,6 +628,38 @@ async def tournament_admin_finalize(request: Request):
             "prize_pool": f"{pool:,.0f} RUSH", "winners": winners}
 
 
+@app.post("/tournament/admin/clear-leaderboard")
+async def tournament_admin_clear_leaderboard(request: Request):
+    body = await request.json()
+    admin_key = body.get("admin_key", "")
+    if hashlib.sha256(admin_key.encode()).hexdigest() != ADMIN_KEY_HASH:
+        return JSONResponse(status_code=403, content={"error": "Unauthorized"})
+    tid = body.get("tournament_id", "")
+    if not tid:
+        return JSONResponse(status_code=400, content={"error": "tournament_id required"})
+
+    db = get_tournament_db()
+    t = db.execute("SELECT * FROM tournaments WHERE id = ?", [tid]).fetchone()
+    if not t:
+        db.close()
+        return JSONResponse(status_code=404, content={"error": "Tournament not found"})
+
+    # Delete all scores for this tournament
+    deleted_scores = db.execute("DELETE FROM scores WHERE tournament_id = ?", [tid]).rowcount
+    # Reset registration scores but keep the registrations (players stay registered)
+    reset_regs = db.execute("""
+        UPDATE registrations SET best_score = 0, best_grade = '', total_games = 0
+        WHERE tournament_id = ?
+    """, [tid]).rowcount
+    # Clear any session locks for this tournament
+    db.execute("DELETE FROM session_locks WHERE tournament_id = ?", [tid])
+    db.commit()
+    db.close()
+    logging.info(f"Leaderboard cleared for {tid}: {deleted_scores} scores deleted, {reset_regs} registrations reset")
+    return {"success": True, "tournament_id": tid,
+            "scores_deleted": deleted_scores, "registrations_reset": reset_regs}
+
+
 @app.get("/tournament/dev-leaderboard")
 def tournament_dev_leaderboard(key: str = "", tournament_id: str = None):
     if hashlib.sha256(key.encode()).hexdigest() != ADMIN_KEY_HASH:
