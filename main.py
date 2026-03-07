@@ -14,8 +14,11 @@ import sqlite3
 import urllib.request
 import time
 import hashlib
+import logging
 from datetime import datetime, timezone, timedelta
 from contextlib import asynccontextmanager
+
+logger = logging.getLogger("taprush.main")
 
 from pathlib import Path
 
@@ -200,7 +203,7 @@ def get_current_tournament_id():
 def ensure_tournament(db):
     tid = get_current_tournament_id()
     now = datetime.now(timezone.utc)
-    existing = db.execute("SELECT id FROM tournaments WHERE id = ?", [tid]).fetchone()
+    existing = db.execute("SELECT id, status, end_time FROM tournaments WHERE id = ?", [tid]).fetchone()
     if not existing:
         if now.hour < 23:
             start = (now - timedelta(days=1)).replace(hour=23, minute=0, second=0, microsecond=0)
@@ -212,6 +215,14 @@ def ensure_tournament(db):
             [tid, start.isoformat(), end.isoformat()]
         )
         db.commit()
+    elif existing["status"] == "finalized":
+        # Tournament was finalized by cron but we're still in its time window.
+        # Check if end_time hasn't passed yet — if so, reactivate it.
+        end_time = datetime.fromisoformat(existing["end_time"]).replace(tzinfo=timezone.utc)
+        if now < end_time:
+            db.execute("UPDATE tournaments SET status = 'active' WHERE id = ?", [tid])
+            db.commit()
+            logger.info(f"Reactivated tournament {tid} (finalized early, still within window)")
     return tid
 
 
@@ -323,6 +334,28 @@ async def tournament_register(request: Request):
         db.commit()
         games_remaining = new_deposits - (existing["total_games"] or 0)
         db.close()
+
+        # Email notification: re-deposit
+        try:
+            t_info = get_tournament_db()
+            t_row = t_info.execute("SELECT entries FROM tournaments WHERE id = ?", [tid]).fetchone()
+            pool = (t_row["entries"] if t_row else 0) * BUY_IN
+            t_info.close()
+            crons.send_email(
+                f"TAP RUSH — Re-deposit! ({tid})",
+                f"PLAYER RE-DEPOSITED\n"
+                f"{'=' * 40}\n\n"
+                f"Address: {address}\n"
+                f"Tournament: {tid}\n"
+                f"Deposit #{new_deposits}\n"
+                f"TX Signature: {tx_signature}\n\n"
+                f"Games Played: {existing['total_games'] or 0}\n"
+                f"Games Remaining: {games_remaining}\n"
+                f"Current Prize Pool: {pool:,.0f} RUSH"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to send re-deposit email: {e}")
+
         return {"success": True, "tournament_id": tid, "deposits": new_deposits,
                 "total_games": existing["total_games"] or 0, "games_remaining": games_remaining,
                 "message": f"Re-deposit accepted! You have {games_remaining} game(s) remaining."}
@@ -341,6 +374,28 @@ async def tournament_register(request: Request):
     t_updated = db.execute("SELECT entries FROM tournaments WHERE id = ?", [tid]).fetchone()
     pool = t_updated["entries"] * BUY_IN
     db.close()
+
+    # Email notification: new tournament buy-in
+    try:
+        short_addr = address[:6] + "..." + address[-4:] if len(address) > 10 else address
+        crons.send_email(
+            f"TAP RUSH — New Tournament Entry! ({tid})",
+            f"NEW PLAYER REGISTERED\n"
+            f"{'=' * 40}\n\n"
+            f"Address: {address}\n"
+            f"Display Name: {display_name or 'N/A'}\n"
+            f"Tournament: {tid}\n"
+            f"TX Signature: {tx_signature}\n\n"
+            f"Total Entries: {t_updated['entries']}\n"
+            f"Prize Pool: {pool:,.0f} RUSH\n\n"
+            f"Payouts if tournament ended now:\n"
+            f"  1st: {int(pool * 0.70):,.0f} RUSH\n"
+            f"  2nd: {int(pool * 0.20):,.0f} RUSH\n"
+            f"  3rd: {int(pool * 0.10):,.0f} RUSH"
+        )
+    except Exception as e:
+        logger.warning(f"Failed to send registration email: {e}")
+
     return {"success": True, "tournament_id": tid, "entries": t_updated["entries"],
             "deposits": 1, "total_games": 0, "games_remaining": 1,
             "prize_pool": f"{pool:,.0f} RUSH", "message": "You're in! You have 1 game. Make it count!"}

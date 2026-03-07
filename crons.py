@@ -15,7 +15,7 @@ import os
 import time
 import logging
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 # ══════════════════════════════════════════════
 #  CONFIG
@@ -347,13 +347,22 @@ def cron_vote_checker():
 def cron_tournament_end():
     """
     Runs daily at 11:00pm UTC (3pm PST).
-    Fetches dev leaderboard, sends payout cheat sheet, finalizes tournament.
+    Fetches dev leaderboard for YESTERDAY's tournament (the one that just ended),
+    sends payout cheat sheet, finalizes it.
+    
+    At 23:00 UTC, get_current_tournament_id() returns today's date (the NEW tournament).
+    We need yesterday's — the one whose window just closed.
     """
     logger.info("=== CRON: Tournament End starting ===")
 
     try:
+        # Calculate yesterday's tournament ID (the one that just ended)
+        yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).date()
+        ending_tid = f"RUSH-{yesterday.strftime('%Y-%m-%d')}"
+        logger.info(f"Finalizing tournament: {ending_tid}")
+
         api_base = os.environ.get("API_BASE_URL", "https://web-production-0b074.up.railway.app")
-        dev_data = _fetch_json(f"{api_base}/tournament/dev-leaderboard?key={ADMIN_KEY}")
+        dev_data = _fetch_json(f"{api_base}/tournament/dev-leaderboard?key={ADMIN_KEY}&tournament_id={ending_tid}")
 
         if not dev_data:
             _log_cron("tournament_end", "error", "Could not fetch dev leaderboard")
