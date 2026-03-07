@@ -34,6 +34,7 @@ import crons
 # ══════════════════════════════════════════════
 RUSH_MINT = "ZZdUjmm6stModTGwB7yQk9RphzbV6WYHMD5Wz7oPLAY"
 DEPOSIT_ADDRESS = "7rH4WYQ9Y7UjmizQxvHmpgLyvsBZfArweE48DWrcyoXu"
+DEPOSIT_ATA = "p7dB4kZFt1q7VxNd9wtNTFt7q39kiQBQTYYc4KbXXNg"  # Hardcoded — RPC rate limits getTokenAccountsByOwner
 
 RPC_URLS = [
     "https://solana-rpc.publicnode.com",
@@ -533,8 +534,7 @@ async def tournament_check_deposit(request: Request):
         return JSONResponse(status_code=400, content={"error": "Address required"})
 
     balance = get_rush_balance(address)
-    deposit_ata = get_deposit_ata()
-    query_address = deposit_ata or DEPOSIT_ADDRESS
+    query_address = DEPOSIT_ATA  # Use hardcoded ATA — RPC rate limits the dynamic lookup
 
     sigs_data = solana_rpc("getSignaturesForAddress", [query_address, {"limit": 20}])
     recent_sigs = []
