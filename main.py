@@ -6,6 +6,7 @@ Designed for deployment on Railway / Render / any container host.
 
 Tournament endpoints: /tournament/...
 Vote endpoints:       /vote/...
+Play.fun endpoints:   /playfun/...
 """
 
 import json
@@ -14,6 +15,7 @@ import sqlite3
 import urllib.request
 import time
 import hashlib
+import hmac
 import logging
 from datetime import datetime, timezone, timedelta
 from contextlib import asynccontextmanager
@@ -998,6 +1000,164 @@ async def cron_trigger(request: Request):
     t = threading.Thread(target=valid_jobs[job_id], daemon=True)
     t.start()
     return {"success": True, "message": f"Job '{job_id}' triggered", "note": "Running in background"}
+
+
+# ══════════════════════════════════════════════
+#  PLAY.FUN HYBRID INTEGRATION
+#  Server-side point submission (SSV mode)
+# ══════════════════════════════════════════════
+PLAYFUN_API_KEY = os.environ.get("PLAYFUN_API_KEY", "00ade5fd-f5fe-4b3f-b172-e6ddd6b19bfe")
+PLAYFUN_SECRET  = os.environ.get("PLAYFUN_SECRET",  "c97fccbd-adae-43da-869d-8c74ff1db0c0")
+PLAYFUN_GAME_ID = os.environ.get("PLAYFUN_GAME_ID", "4b568177-ec1b-4976-9cbc-582f35096f66")
+PLAYFUN_API_URL = "https://api.play.fun"
+
+
+def _playfun_hmac(method: str, path: str, timestamp: str) -> str:
+    """Generate HMAC-SHA256 signature for play.fun API."""
+    message = f"{method.lower()}\n{path.lower()}\n{timestamp}"
+    return hmac.new(PLAYFUN_SECRET.encode(), message.encode(), hashlib.sha256).hexdigest()
+
+
+def _playfun_request(method: str, path: str, body: dict = None):
+    """Make an authenticated request to the play.fun API."""
+    timestamp = str(int(time.time() * 1000))
+    sig = _playfun_hmac(method, path, timestamp)
+    auth = f"HMAC-SHA256 apiKey={PLAYFUN_API_KEY}, signature={sig}, timestamp={timestamp}"
+    url = f"{PLAYFUN_API_URL}{path}"
+    data = json.dumps(body).encode() if body else None
+    req = urllib.request.Request(url, data=data, method=method, headers={
+        "Authorization": auth,
+        "x-auth-provider": "hmac",
+        "Content-Type": "application/json",
+    })
+    try:
+        resp = urllib.request.urlopen(req, timeout=20)
+        return json.loads(resp.read().decode())
+    except urllib.error.HTTPError as e:
+        err_body = e.read().decode()[:500]
+        logger.error(f"play.fun API error {e.code}: {err_body}")
+        return {"error": e.code, "message": err_body}
+    except Exception as e:
+        logger.error(f"play.fun API exception: {e}")
+        return {"error": 500, "message": str(e)}
+
+
+@app.post("/playfun/save-points")
+async def playfun_save_points(request: Request):
+    """
+    Hybrid integration endpoint: client sends session token + points,
+    server validates and saves via play.fun dev API.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Invalid JSON"})
+
+    session_token = body.get("sessionToken", "").strip()
+    points = body.get("points", 0)
+    player_id = body.get("playerId", "").strip()  # sol:address or did:privy:xxx
+
+    if not session_token:
+        return JSONResponse(status_code=400, content={"error": "sessionToken required"})
+    if not points or not isinstance(points, (int, float)) or points <= 0:
+        return JSONResponse(status_code=400, content={"error": "Positive points value required"})
+    if not player_id:
+        return JSONResponse(status_code=400, content={"error": "playerId required (sol:address or wallet)"})
+
+    points = int(points)
+
+    # Step 1: Validate the session token with play.fun
+    validate_result = _playfun_request("POST", "/play/dev/validate-session-token", {
+        "sessionToken": session_token
+    })
+
+    if "error" in validate_result:
+        logger.warning(f"Session validation failed: {validate_result}")
+        return JSONResponse(status_code=401, content={
+            "error": "Session validation failed",
+            "detail": validate_result.get("message", "Unknown error")
+        })
+
+    if not validate_result.get("valid"):
+        return JSONResponse(status_code=401, content={"error": "Invalid session token"})
+
+    validated_game = validate_result.get("gameId", "")
+    validated_ogp = validate_result.get("ogpId", "")
+    logger.info(f"Session validated: gameId={validated_game}, ogpId={validated_ogp}, points={points}")
+
+    # Step 2: Save points via batch-save-points
+    save_result = _playfun_request("POST", "/play/dev/batch-save-points", {
+        "gameApiKey": PLAYFUN_GAME_ID,
+        "points": [{
+            "playerId": validated_ogp if validated_ogp else player_id,
+            "points": str(points)
+        }]
+    })
+
+    if "error" in save_result:
+        logger.error(f"batch-save-points failed: {save_result}")
+        return JSONResponse(status_code=502, content={
+            "error": "Failed to save points to play.fun",
+            "detail": save_result.get("message", "Unknown error")
+        })
+
+    logger.info(f"Points saved: {points} for {player_id} (ogpId={validated_ogp}), result={save_result}")
+    return {
+        "success": True,
+        "points": points,
+        "savedCount": save_result.get("savedCount", 0),
+        "ogpId": validated_ogp,
+        "message": f"Saved {points} points via server-side integration"
+    }
+
+
+@app.post("/playfun/save-points-direct")
+async def playfun_save_points_direct(request: Request):
+    """
+    Direct server-side point save — for cases where session validation
+    is not possible (e.g. player not logged in via Privy but identified by wallet).
+    Uses wallet address directly with batch-save-points.
+    Protected by admin key.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Invalid JSON"})
+
+    admin_key = body.get("admin_key", "")
+    if hashlib.sha256(admin_key.encode()).hexdigest() != ADMIN_KEY_HASH:
+        return JSONResponse(status_code=403, content={"error": "Unauthorized"})
+
+    player_id = body.get("playerId", "").strip()
+    points = body.get("points", 0)
+
+    if not player_id:
+        return JSONResponse(status_code=400, content={"error": "playerId required"})
+    if not points or not isinstance(points, (int, float)) or points <= 0:
+        return JSONResponse(status_code=400, content={"error": "Positive points required"})
+
+    save_result = _playfun_request("POST", "/play/dev/batch-save-points", {
+        "gameApiKey": PLAYFUN_GAME_ID,
+        "points": [{
+            "playerId": player_id,
+            "points": str(int(points))
+        }]
+    })
+
+    if "error" in save_result:
+        return JSONResponse(status_code=502, content={
+            "error": "Failed to save points",
+            "detail": save_result.get("message", "")
+        })
+
+    return {"success": True, "points": int(points), "result": save_result}
+
+
+@app.get("/playfun/leaderboard")
+def playfun_leaderboard():
+    """Proxy the play.fun leaderboard."""
+    result = _playfun_request("GET", f"/play/dev/leaderboard/{PLAYFUN_GAME_ID}")
+    return result
 
 
 # ══════════════════════════════════════════════
