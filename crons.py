@@ -391,17 +391,30 @@ def cron_tournament_end():
             body += "=" * 40 + "\n\n"
             body += f"Total Entries: {entries}\n"
             body += f"Prize Pool: {prize_pool}\n\n"
-            body += "PAYOUT CHEAT SHEET\n"
-            body += "-" * 40 + "\n"
 
-            medals = {"1st": "1st", "2nd": "2nd", "3rd": "3rd"}
-            for place in ["1st", "2nd", "3rd"]:
-                p = payouts.get(place, {})
+            if entries == 1:
+                body += "SINGLE PLAYER — REFUND\n"
+                body += "-" * 40 + "\n"
+                p = payouts.get("1st", {})
                 addr = p.get("address") or "N/A"
-                score = p.get("score", 0)
-                payout_display = p.get("payout_display", "N/A")
-                body += f"  {medals[place]}: {addr}\n"
-                body += f"       Score: {score} pts — Send {payout_display}\n\n"
+                body += f"  Refund 1,000,000 RUSH to: {addr}\n\n"
+            else:
+                if entries == 2:
+                    body += "2 PLAYERS — 1st gets 100%\n"
+                else:
+                    body += f"{entries} PLAYERS — 1st 80% / 2nd 20%\n"
+                body += "PAYOUT CHEAT SHEET\n"
+                body += "-" * 40 + "\n"
+
+                for place in ["1st", "2nd", "3rd"]:
+                    p = payouts.get(place, {})
+                    addr = p.get("address") or "N/A"
+                    score = p.get("score", 0)
+                    payout_display = p.get("payout_display", "N/A")
+                    if payout_display in ("--", "N/A") and not addr:
+                        continue  # Skip empty places
+                    body += f"  {place}: {addr}\n"
+                    body += f"       Score: {score} pts — Send {payout_display}\n\n"
 
             body += "\nPLAYER SUMMARY\n"
             body += "-" * 40 + "\n"

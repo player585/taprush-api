@@ -49,7 +49,27 @@ TOURNAMENT_DB = os.path.join(DATA_DIR, "tournament.db")
 VOTES_DB = os.path.join(DATA_DIR, "votes.db")
 
 BUY_IN = 1_000_000  # 1M RUSH tokens
-PAYOUT_SPLIT = {"1st": 0.70, "2nd": 0.20, "3rd": 0.10}
+# Dynamic payout splits based on number of entrants
+def get_payout_splits(num_entries):
+    """Return payout splits dict based on player count.
+    1 player  = refund (100% back to the single player)
+    2 players = 1st gets 100%
+    3+ players = 1st 80%, 2nd 20%
+    """
+    if num_entries <= 1:
+        return {"1st": 1.00, "2nd": 0.00, "3rd": 0.00}
+    if num_entries == 2:
+        return {"1st": 1.00, "2nd": 0.00, "3rd": 0.00}
+    # 3+ players
+    return {"1st": 0.80, "2nd": 0.20, "3rd": 0.00}
+
+def get_payout_labels(num_entries):
+    """Human-readable payout labels for display."""
+    if num_entries <= 1:
+        return {"1st": "REFUND", "2nd": "--", "3rd": "--"}
+    if num_entries == 2:
+        return {"1st": "100%", "2nd": "--", "3rd": "--"}
+    return {"1st": "80%", "2nd": "20%", "3rd": "--"}
 ADMIN_KEY_HASH = hashlib.sha256(b"taprush2026admin").hexdigest()
 SESSION_LOCK_TIMEOUT = 30  # seconds
 MIN_VOTE_DEPOSIT = 1  # 1 RUSH to vote
@@ -288,18 +308,22 @@ def tournament_info():
         })
 
     prize_pool = t["entries"] * BUY_IN
+    n_entries = t["entries"]
+    splits = get_payout_splits(n_entries)
+    labels = get_payout_labels(n_entries)
     db.close()
     return {
         "tournament_id": tid, "status": t["status"],
         "start_time": t["start_time"], "end_time": t["end_time"],
-        "time_remaining_seconds": remaining, "entries": t["entries"],
+        "time_remaining_seconds": remaining, "entries": n_entries,
         "prize_pool": prize_pool, "prize_pool_display": f"{prize_pool:,.0f} RUSH",
         "buy_in": BUY_IN, "buy_in_display": f"{BUY_IN:,.0f} RUSH",
         "payouts": {
-            "1st": f"{int(prize_pool * 0.70):,.0f} RUSH",
-            "2nd": f"{int(prize_pool * 0.20):,.0f} RUSH",
-            "3rd": f"{int(prize_pool * 0.10):,.0f} RUSH",
+            "1st": labels["1st"] if n_entries <= 1 else f"{int(prize_pool * splits['1st']):,.0f} RUSH",
+            "2nd": labels["2nd"] if splits["2nd"] == 0 else f"{int(prize_pool * splits['2nd']):,.0f} RUSH",
+            "3rd": labels["3rd"] if splits["3rd"] == 0 else f"{int(prize_pool * splits['3rd']):,.0f} RUSH",
         },
+        "payout_labels": labels,
         "deposit_address": DEPOSIT_ADDRESS, "leaderboard": leaderboard
     }
 
@@ -392,9 +416,11 @@ async def tournament_register(request: Request):
             f"Total Entries: {t_updated['entries']}\n"
             f"Prize Pool: {pool:,.0f} RUSH\n\n"
             f"Payouts if tournament ended now:\n"
-            f"  1st: {int(pool * 0.70):,.0f} RUSH\n"
-            f"  2nd: {int(pool * 0.20):,.0f} RUSH\n"
-            f"  3rd: {int(pool * 0.10):,.0f} RUSH"
+            f"  Payout Structure:\n"
+            f"    1 player = REFUND\n"
+            f"    2 players = 1st 100%\n"
+            f"    3+ players = 1st 80%, 2nd 20%\n"
+            f"  Current pool: {pool:,.0f} RUSH"
         )
     except Exception as e:
         logger.warning(f"Failed to send registration email: {e}")
@@ -608,14 +634,26 @@ async def tournament_admin_finalize(request: Request):
     """, [tid]).fetchall()
 
     pool = t["entries"] * BUY_IN
+    num_players_with_scores = len(top3)
+    num_entries = t["entries"]
+
+    # Dynamic payout logic:
+    # 1 player = refund (give them back their buy-in)
+    # 2 players = 1st gets 100%
+    # 3+ players = 1st 80%, 2nd 20%
+    splits = get_payout_splits(num_entries)
+
     winners = {}
     places = ["1st", "2nd", "3rd"]
     for i, place in enumerate(places):
-        if i < len(top3):
+        if i < num_players_with_scores and splits[place] > 0:
+            payout_amount = int(pool * splits[place])
+            # For 1 player (refund), label it as refund
+            is_refund = (num_entries == 1 and place == "1st")
             winners[place] = {"address": top3[i]["address"], "score": top3[i]["best_score"],
-                              "payout": int(pool * PAYOUT_SPLIT[place])}
+                              "payout": payout_amount, "is_refund": is_refund}
         else:
-            winners[place] = {"address": None, "score": 0, "payout": 0}
+            winners[place] = {"address": None, "score": 0, "payout": 0, "is_refund": False}
 
     db.execute("""
         UPDATE tournaments SET status = 'finalized',
@@ -706,15 +744,20 @@ def tournament_dev_leaderboard(key: str = "", tournament_id: str = None):
         })
 
     pool = t["entries"] * BUY_IN
+    num_entries = t["entries"]
+    splits = get_payout_splits(num_entries)
+    labels = get_payout_labels(num_entries)
     payouts = {}
     for i, place in enumerate(["1st", "2nd", "3rd"]):
-        if i < len(players):
-            payout_amount = int(pool * PAYOUT_SPLIT[place])
+        if i < len(players) and splits[place] > 0:
+            payout_amount = int(pool * splits[place])
+            is_refund = (num_entries == 1 and place == "1st")
+            display = "REFUND" if is_refund else f"{payout_amount:,.0f} RUSH"
             payouts[place] = {"address": players[i]["address"], "display_name": players[i]["display_name"],
                               "score": players[i]["best_score"], "grade": players[i]["best_grade"],
-                              "payout_rush": payout_amount, "payout_display": f"{payout_amount:,.0f} RUSH"}
+                              "payout_rush": payout_amount, "payout_display": display}
         else:
-            payouts[place] = {"address": None, "payout_rush": 0, "payout_display": "N/A"}
+            payouts[place] = {"address": None, "payout_rush": 0, "payout_display": labels[place]}
     db.close()
     return {"tournament_id": tid, "status": t["status"], "start_time": t["start_time"],
             "end_time": t["end_time"], "entries": t["entries"], "prize_pool": pool,
