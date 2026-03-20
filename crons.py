@@ -21,7 +21,11 @@ from datetime import datetime, timezone, timedelta
 #  CONFIG
 # ══════════════════════════════════════════════
 DATA_DIR = os.environ.get("DATA_DIR", ".")
-NOTIFY_EMAIL = os.environ.get("NOTIFY_EMAIL", "player585@proton.me").strip()
+NOTIFY_EMAIL = os.environ.get("NOTIFY_EMAIL", "taprushdotfun@gmail.com").strip()
+
+# Internal API base URL — use localhost since crons run inside the same process
+_port = os.environ.get("PORT", "8000")
+API_BASE = os.environ.get("API_BASE_URL", f"http://localhost:{_port}")
 
 RUSH_MINT = "ZZdUjmm6stModTGwB7yQk9RphzbV6WYHMD5Wz7oPLAY"
 DEPOSIT_ATA = "p7dB4kZFt1q7VxNd9wtNTFt7q39kiQBQTYYc4KbXXNg"
@@ -57,15 +61,20 @@ def _write_json(path, data):
 
 
 def _fetch_json(url, method="GET", body=None, timeout=20):
-    """Fetch JSON from a URL."""
+    """Fetch JSON from a URL. Uses requests with browser-like headers."""
+    import requests as req_lib
     try:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (compatible; TapRush/1.0)",
+            "Accept": "application/json",
+        }
         if body:
-            data_bytes = json.dumps(body).encode("utf-8")
-            req = urllib.request.Request(url, data=data_bytes, headers={"Content-Type": "application/json"})
+            headers["Content-Type"] = "application/json"
+            resp = req_lib.post(url, json=body, headers=headers, timeout=timeout)
         else:
-            req = urllib.request.Request(url)
-        resp = urllib.request.urlopen(req, timeout=timeout)
-        return json.loads(resp.read().decode("utf-8"))
+            resp = req_lib.get(url, headers=headers, timeout=timeout)
+        resp.raise_for_status()
+        return resp.json()
     except Exception as e:
         logger.error(f"Fetch error {url}: {e}")
         return None
@@ -301,11 +310,7 @@ def cron_vote_checker():
     logger.info("=== CRON: Vote Checker starting ===")
 
     try:
-        # Use localhost since this runs inside the same FastAPI process
-        # But we can also just query the DB directly
-        # Let's use the Railway URL to keep it simple and testable
-        api_base = os.environ.get("API_BASE_URL", "https://web-production-0b074.up.railway.app")
-        vote_data = _fetch_json(f"{api_base}/vote/results?poll_id=sol-chart")
+        vote_data = _fetch_json(f"{API_BASE}/vote/results?poll_id=sol-chart")
 
         if not vote_data:
             _log_cron("vote_checker", "error", "Could not fetch vote results")
@@ -361,8 +366,7 @@ def cron_tournament_end():
         ending_tid = f"RUSH-{yesterday.strftime('%Y-%m-%d')}"
         logger.info(f"Finalizing tournament: {ending_tid}")
 
-        api_base = os.environ.get("API_BASE_URL", "https://web-production-0b074.up.railway.app")
-        dev_data = _fetch_json(f"{api_base}/tournament/dev-leaderboard?key={ADMIN_KEY}&tournament_id={ending_tid}")
+        dev_data = _fetch_json(f"{API_BASE}/tournament/dev-leaderboard?key={ADMIN_KEY}&tournament_id={ending_tid}")
 
         if not dev_data:
             _log_cron("tournament_end", "error", "Could not fetch dev leaderboard")
@@ -445,7 +449,7 @@ def cron_tournament_end():
 
         # Finalize the tournament
         finalize_result = _fetch_json(
-            f"{api_base}/tournament/admin/finalize",
+            f"{API_BASE}/tournament/admin/finalize",
             method="POST",
             body={"admin_key": ADMIN_KEY, "tournament_id": tid}
         )
@@ -464,6 +468,14 @@ def cron_tournament_end():
             "TAP RUSH Tournament — ERROR",
             f"Tournament end cron failed:\n{str(e)}"
         )
+
+    # ── Ensure today's new tournament exists ──
+    try:
+        # Hit the tournament info endpoint which triggers ensure_tournament()
+        _fetch_json(f"{API_BASE}/tournament/tournament")
+        logger.info("Ensured today's tournament exists via /tournament/tournament")
+    except Exception as e:
+        logger.warning(f"Could not ensure today's tournament: {e}")
 
     logger.info("=== CRON: Tournament End done ===")
 
