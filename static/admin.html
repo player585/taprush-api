@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TAP RUSH — Admin</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Courier New', monospace; background: #0a0a0a; color: #e0e0e0; padding: 20px; }
+  h1 { color: #ffd700; font-size: 1.4rem; margin-bottom: 4px; }
+  .subtitle { color: #666; font-size: 0.8rem; margin-bottom: 20px; }
+  .section { background: #141414; border: 1px solid #222; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+  .section-title { color: #ffd700; font-size: 1rem; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .section-title span { font-size: 1.2rem; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th { text-align: left; color: #888; padding: 6px 8px; border-bottom: 1px solid #333; font-weight: normal; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 1px; }
+  td { padding: 6px 8px; border-bottom: 1px solid #1a1a1a; }
+  tr:hover td { background: #1a1a1a; }
+  .medal { font-size: 1.1rem; }
+  .addr { font-family: monospace; color: #4fc3f7; font-size: 0.8rem; }
+  .addr-full { display: none; }
+  .score { color: #ffd700; font-weight: bold; }
+  .grade { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 0.75rem; font-weight: bold; }
+  .grade-S { background: #ffd700; color: #000; }
+  .grade-A { background: #4caf50; color: #fff; }
+  .grade-B { background: #2196f3; color: #fff; }
+  .grade-C { background: #ff9800; color: #fff; }
+  .grade-D { background: #f44336; color: #fff; }
+  .grade-F { background: #666; color: #fff; }
+  .payout { color: #4caf50; font-weight: bold; }
+  .status-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; }
+  .status-active { background: #1b5e20; color: #4caf50; }
+  .status-finalized { background: #4a3000; color: #ffa000; }
+  .cheating { color: #f44336; font-weight: bold; }
+  .bust { color: #f44336; }
+  .btn { background: #222; border: 1px solid #444; color: #e0e0e0; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-family: inherit; font-size: 0.8rem; transition: all 0.2s; }
+  .btn:hover { background: #333; border-color: #ffd700; color: #ffd700; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-danger { border-color: #f44336; }
+  .btn-danger:hover { border-color: #f44336; color: #f44336; }
+  .btn-gold { border-color: #ffd700; color: #ffd700; }
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 12px; }
+  .stat-card { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 6px; padding: 10px; text-align: center; }
+  .stat-value { font-size: 1.3rem; color: #ffd700; font-weight: bold; }
+  .stat-label { font-size: 0.7rem; color: #666; text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+  .log-entry { padding: 4px 0; border-bottom: 1px solid #1a1a1a; font-size: 0.8rem; display: flex; gap: 10px; }
+  .log-time { color: #666; min-width: 160px; }
+  .log-task { color: #4fc3f7; min-width: 120px; }
+  .log-status { min-width: 80px; }
+  .log-status.quiet { color: #666; }
+  .log-status.alert_sent { color: #ffd700; }
+  .log-status.error { color: #f44336; }
+  .log-status.notified { color: #4caf50; }
+  .log-status.finalized { color: #4caf50; }
+  .log-status.baseline_set { color: #888; }
+  .log-detail { color: #999; flex: 1; }
+  .cron-job { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #1a1a1a; }
+  .cron-name { color: #e0e0e0; }
+  .cron-next { color: #666; font-size: 0.8rem; }
+  .cron-trigger { font-size: 0.75rem; color: #444; }
+  .toast { position: fixed; bottom: 20px; right: 20px; background: #1b5e20; color: #4caf50; padding: 10px 16px; border-radius: 6px; font-size: 0.85rem; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 100; }
+  .toast.show { opacity: 1; }
+  .toast.error { background: #4a1010; color: #f44336; }
+  .loading { color: #666; font-style: italic; }
+  .tab-bar { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid #222; padding-bottom: 8px; }
+  .tab { padding: 6px 14px; border-radius: 4px 4px 0 0; cursor: pointer; font-size: 0.85rem; color: #666; border: 1px solid transparent; border-bottom: none; }
+  .tab.active { color: #ffd700; border-color: #333; background: #141414; }
+  .tab:hover:not(.active) { color: #999; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+  .history-row { cursor: pointer; }
+  .history-row:hover td { background: #1a1a1a; }
+  .game-row { font-size: 0.8rem; color: #999; }
+  .game-row td { padding: 3px 8px; }
+  #login-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; gap: 16px; }
+  #login-screen input { background: #141414; border: 1px solid #333; color: #e0e0e0; padding: 10px 16px; border-radius: 4px; font-family: inherit; font-size: 1rem; width: 280px; text-align: center; }
+  #login-screen input:focus { outline: none; border-color: #ffd700; }
+  #app { display: none; }
+  @media (max-width: 600px) {
+    body { padding: 10px; }
+    .stat-grid { grid-template-columns: repeat(2, 1fr); }
+    .log-entry { flex-wrap: wrap; }
+    .log-time { min-width: auto; }
+    table { font-size: 0.75rem; }
+  }
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <h1>🔒 TAP RUSH ADMIN</h1>
+  <input type="password" id="key-input" placeholder="Admin key" autofocus>
+  <button class="btn btn-gold" onclick="doLogin()">Enter</button>
+</div>
+
+<div id="app">
+  <h1>⚡ TAP RUSH ADMIN</h1>
+  <p class="subtitle">Private dev dashboard — do not share</p>
+
+  <div class="tab-bar">
+    <div class="tab active" data-tab="leaderboard">Leaderboard</div>
+    <div class="tab" data-tab="history">History</div>
+    <div class="tab" data-tab="crons">Crons</div>
+    <div class="tab" data-tab="logs">Logs</div>
+    <div class="tab" data-tab="tools">Tools</div>
+  </div>
+
+  <!-- LEADERBOARD TAB -->
+  <div id="tab-leaderboard" class="tab-content active">
+    <div class="section">
+      <div class="section-title"><span>🏆</span> Current Tournament</div>
+      <div id="tournament-stats" class="stat-grid"><div class="loading">Loading...</div></div>
+      <div class="section-title" style="margin-top:12px"><span>📋</span> Payout Cheat Sheet</div>
+      <div id="payout-sheet"></div>
+      <div class="section-title" style="margin-top:12px"><span>👥</span> Players</div>
+      <div id="players-table"></div>
+    </div>
+  </div>
+
+  <!-- HISTORY TAB -->
+  <div id="tab-history" class="tab-content">
+    <div class="section">
+      <div class="section-title"><span>📜</span> Tournament History</div>
+      <div id="history-table"><div class="loading">Loading...</div></div>
+    </div>
+  </div>
+
+  <!-- CRONS TAB -->
+  <div id="tab-crons" class="tab-content">
+    <div class="section">
+      <div class="section-title"><span>⏰</span> Scheduled Jobs</div>
+      <div id="cron-jobs"><div class="loading">Loading...</div></div>
+    </div>
+  </div>
+
+  <!-- LOGS TAB -->
+  <div id="tab-logs" class="tab-content">
+    <div class="section">
+      <div class="section-title"><span>📝</span> Cron Logs <button class="btn" onclick="loadLogs()" style="margin-left:auto;font-size:0.7rem;">Refresh</button></div>
+      <div id="cron-logs"><div class="loading">Loading...</div></div>
+    </div>
+  </div>
+
+  <!-- TOOLS TAB -->
+  <div id="tab-tools" class="tab-content">
+    <div class="section">
+      <div class="section-title"><span>🛠️</span> Admin Actions</div>
+      <div class="controls">
+        <button class="btn" onclick="triggerCron('vote_checker')">Run Vote Check</button>
+        <button class="btn" onclick="triggerCron('rush_monitor')">Run Token Monitor</button>
+        <button class="btn" onclick="triggerCron('tournament_end')">Run Tournament End</button>
+      </div>
+      <div class="controls" style="margin-top:8px">
+        <button class="btn btn-danger" onclick="clearLeaderboard()">Clear Current Leaderboard</button>
+      </div>
+      <div style="margin-top:12px">
+        <div class="section-title"><span>🔍</span> Player Lookup</div>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="player-addr" placeholder="Wallet address" style="flex:1;background:#1a1a1a;border:1px solid #333;color:#e0e0e0;padding:6px 10px;border-radius:4px;font-family:inherit;font-size:0.85rem;">
+          <button class="btn" onclick="lookupPlayer()">Lookup</button>
+        </div>
+        <div id="player-result" style="margin-top:8px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+const BASE = window.location.origin;
+let KEY = '';
+
+function doLogin() {
+  KEY = document.getElementById('key-input').value.trim();
+  if (!KEY) return;
+  // Test the key
+  fetch(`${BASE}/cron/status?key=${KEY}`)
+    .then(r => { if (!r.ok) throw new Error('Invalid key'); return r.json(); })
+    .then(() => {
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      sessionStorage.setItem('ak', KEY);
+      loadAll();
+    })
+    .catch(() => toast('Invalid admin key', true));
+}
+
+document.getElementById('key-input').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+// Auto-login from session
+if (sessionStorage.getItem('ak')) {
+  KEY = sessionStorage.getItem('ak');
+  fetch(`${BASE}/cron/status?key=${KEY}`)
+    .then(r => { if (r.ok) { document.getElementById('login-screen').style.display='none'; document.getElementById('app').style.display='block'; loadAll(); } })
+    .catch(() => {});
+}
+
+// Tabs
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('tab-' + t.dataset.tab).classList.add('active');
+  });
+});
+
+function loadAll() {
+  loadLeaderboard();
+  loadHistory();
+  loadCrons();
+  loadLogs();
+}
+
+async function api(path, opts = {}) {
+  const sep = path.includes('?') ? '&' : '?';
+  const url = path.startsWith('http') ? path : `${BASE}${path}`;
+  const resp = await fetch(url + (opts.noKey ? '' : `${sep}key=${KEY}`), {
+    method: opts.method || 'GET',
+    headers: opts.body ? { 'Content-Type': 'application/json' } : {},
+    body: opts.body ? JSON.stringify({ admin_key: KEY, ...opts.body }) : undefined
+  });
+  return resp.json();
+}
+
+async function loadLeaderboard() {
+  const d = await api('/tournament/dev-leaderboard');
+  if (d.error) {
+    document.getElementById('tournament-stats').innerHTML = `<div style="color:#f44336">${d.error}</div>`;
+    return;
+  }
+
+  const stats = document.getElementById('tournament-stats');
+  stats.innerHTML = `
+    <div class="stat-card"><div class="stat-value">${d.tournament_id || '—'}</div><div class="stat-label">Tournament</div></div>
+    <div class="stat-card"><div class="stat-value"><span class="status-badge status-${d.status}">${d.status}</span></div><div class="stat-label">Status</div></div>
+    <div class="stat-card"><div class="stat-value">${d.entries || 0}</div><div class="stat-label">Entries</div></div>
+    <div class="stat-card"><div class="stat-value">${d.prize_pool_display || '0 RUSH'}</div><div class="stat-label">Prize Pool</div></div>
+  `;
+
+  // Payout sheet
+  const payouts = d.payouts || {};
+  const medals = { '1st': '🥇', '2nd': '🥈', '3rd': '🥉' };
+  let ph = '<table><tr><th></th><th>Address</th><th>Score</th><th>Payout</th></tr>';
+  for (const place of ['1st', '2nd', '3rd']) {
+    const p = payouts[place] || {};
+    const addr = p.address || '—';
+    const short = addr.length > 8 ? addr.slice(0,6) + '...' + addr.slice(-4) : addr;
+    ph += `<tr>
+      <td class="medal">${medals[place]}</td>
+      <td class="addr" title="${addr}">${short}</td>
+      <td class="score">${p.score || 0}</td>
+      <td class="payout">${p.payout_display || 'N/A'}</td>
+    </tr>`;
+  }
+  ph += '</table>';
+  document.getElementById('payout-sheet').innerHTML = ph;
+
+  // Players
+  const players = d.players || [];
+  if (!players.length) {
+    document.getElementById('players-table').innerHTML = '<div style="color:#666;padding:8px;">No players yet</div>';
+    return;
+  }
+  let pt = '<table><tr><th>#</th><th>Address</th><th>Score</th><th>Grade</th><th>Games</th><th>Deposits</th><th>Device</th><th>Session</th><th>Flags</th></tr>';
+  for (const p of players) {
+    const addr = p.address || '?';
+    const short = addr.length > 8 ? addr.slice(0,6) + '...' + addr.slice(-4) : addr;
+    const g = p.games && p.games[0] ? p.games[0] : {};
+    const device = g.device_type || '?';
+    const session = g.session_time ? `${Math.floor(g.session_time/60)}m ${g.session_time%60}s` : '—';
+    const flags = [];
+    if (p.cheating) flags.push('<span class="cheating">CHEAT</span>');
+    if (g.is_bust) flags.push('<span class="bust">BUST</span>');
+
+    pt += `<tr>
+      <td>${p.rank}</td>
+      <td class="addr" title="${addr}">${short}</td>
+      <td class="score">${p.best_score}</td>
+      <td><span class="grade grade-${p.best_grade}">${p.best_grade}</span></td>
+      <td>${p.total_games}/${p.deposits || 1}</td>
+      <td>${p.deposits || 1}</td>
+      <td>${device}</td>
+      <td>${session}</td>
+      <td>${flags.join(' ') || '—'}</td>
+    </tr>`;
+
+    // Game details
+    if (p.games && p.games.length > 0) {
+      for (const gm of p.games) {
+        const gs = gm.session_time ? `${Math.floor(gm.session_time/60)}m ${gm.session_time%60}s` : '—';
+        pt += `<tr class="game-row"><td></td><td></td>
+          <td>${gm.score}</td>
+          <td><span class="grade grade-${gm.grade}">${gm.grade}</span></td>
+          <td>${gm.game_mode}</td><td></td>
+          <td>${gm.device_type}</td>
+          <td>${gs}</td>
+          <td>${gm.is_bust ? '<span class="bust">BUST</span>' : '—'}</td>
+        </tr>`;
+      }
+    }
+  }
+  pt += '</table>';
+  document.getElementById('players-table').innerHTML = pt;
+}
+
+async function loadHistory() {
+  const d = await api('/tournament/history?limit=20', { noKey: true });
+  const list = d.tournaments || d || [];
+  if (!list.length) {
+    document.getElementById('history-table').innerHTML = '<div style="color:#666">No history</div>';
+    return;
+  }
+  let h = '<table><tr><th>Tournament</th><th>Status</th><th>Entries</th><th>Prize Pool</th><th>Winner</th></tr>';
+  for (const t of list) {
+    const winner = t.winner_1st || t.winners?.['1st']?.address || '—';
+    const shortW = winner.length > 8 ? winner.slice(0,6) + '...' + winner.slice(-4) : winner;
+    h += `<tr class="history-row" onclick="viewTournament('${t.tournament_id || t.id}')">
+      <td>${t.tournament_id || t.id}</td>
+      <td><span class="status-badge status-${t.status}">${t.status}</span></td>
+      <td>${t.entries || 0}</td>
+      <td>${t.prize_pool || '—'}</td>
+      <td class="addr" title="${winner}">${shortW}</td>
+    </tr>`;
+  }
+  h += '</table>';
+  document.getElementById('history-table').innerHTML = h;
+}
+
+async function viewTournament(tid) {
+  const d = await api(`/tournament/dev-leaderboard?tournament_id=${tid}`);
+  if (d.error) { toast(d.error, true); return; }
+  // Switch to leaderboard tab and display this tournament
+  document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(x => x.classList.remove('active'));
+  document.querySelector('[data-tab="leaderboard"]').classList.add('active');
+  document.getElementById('tab-leaderboard').classList.add('active');
+
+  // Re-render with this data
+  const stats = document.getElementById('tournament-stats');
+  stats.innerHTML = `
+    <div class="stat-card"><div class="stat-value">${d.tournament_id}</div><div class="stat-label">Tournament</div></div>
+    <div class="stat-card"><div class="stat-value"><span class="status-badge status-${d.status}">${d.status}</span></div><div class="stat-label">Status</div></div>
+    <div class="stat-card"><div class="stat-value">${d.entries || 0}</div><div class="stat-label">Entries</div></div>
+    <div class="stat-card"><div class="stat-value">${d.prize_pool_display || '0 RUSH'}</div><div class="stat-label">Prize Pool</div></div>
+  `;
+  // Reuse leaderboard render... just reload with tournament_id
+  const payouts = d.payouts || {};
+  const medals = { '1st': '🥇', '2nd': '🥈', '3rd': '🥉' };
+  let ph = '<table><tr><th></th><th>Address</th><th>Score</th><th>Payout</th></tr>';
+  for (const place of ['1st', '2nd', '3rd']) {
+    const p = payouts[place] || {};
+    const addr = p.address || '—';
+    const short = addr.length > 8 ? addr.slice(0,6) + '...' + addr.slice(-4) : addr;
+    ph += `<tr><td class="medal">${medals[place]}</td><td class="addr" title="${addr}">${short}</td><td class="score">${p.score || 0}</td><td class="payout">${p.payout_display || 'N/A'}</td></tr>`;
+  }
+  ph += '</table>';
+  document.getElementById('payout-sheet').innerHTML = ph;
+
+  const players = d.players || [];
+  if (!players.length) { document.getElementById('players-table').innerHTML = '<div style="color:#666">No players</div>'; return; }
+  let pt = '<table><tr><th>#</th><th>Address</th><th>Score</th><th>Grade</th><th>Games</th><th>Deposits</th><th>Device</th><th>Session</th><th>Flags</th></tr>';
+  for (const p of players) {
+    const addr = p.address || '?';
+    const short = addr.length > 8 ? addr.slice(0,6) + '...' + addr.slice(-4) : addr;
+    const g = p.games?.[0] || {};
+    const session = g.session_time ? `${Math.floor(g.session_time/60)}m ${g.session_time%60}s` : '—';
+    const flags = [];
+    if (p.cheating) flags.push('<span class="cheating">CHEAT</span>');
+    if (g.is_bust) flags.push('<span class="bust">BUST</span>');
+    pt += `<tr><td>${p.rank}</td><td class="addr" title="${addr}">${short}</td><td class="score">${p.best_score}</td><td><span class="grade grade-${p.best_grade}">${p.best_grade}</span></td><td>${p.total_games}/${p.deposits||1}</td><td>${p.deposits||1}</td><td>${g.device_type||'?'}</td><td>${session}</td><td>${flags.join(' ')||'—'}</td></tr>`;
+  }
+  pt += '</table>';
+  document.getElementById('players-table').innerHTML = pt;
+}
+
+async function loadCrons() {
+  const d = await api('/cron/status');
+  if (!d.jobs) { document.getElementById('cron-jobs').innerHTML = '<div style="color:#f44336">Could not load</div>'; return; }
+  let h = '';
+  for (const j of d.jobs) {
+    const next = j.next_run ? new Date(j.next_run).toLocaleString() : '—';
+    h += `<div class="cron-job">
+      <div><div class="cron-name">${j.name}</div><div class="cron-trigger">${j.trigger}</div></div>
+      <div style="text-align:right"><div style="color:#4caf50;font-size:0.85rem;">Next: ${next}</div></div>
+    </div>`;
+  }
+  document.getElementById('cron-jobs').innerHTML = h || '<div style="color:#666">No jobs</div>';
+}
+
+async function loadLogs() {
+  const d = await api('/cron/logs?limit=50');
+  const logs = d.logs || [];
+  if (!logs.length) { document.getElementById('cron-logs').innerHTML = '<div style="color:#666">No logs</div>'; return; }
+  let h = '';
+  for (const l of logs.reverse()) {
+    const t = l.time ? new Date(l.time).toLocaleString() : '—';
+    h += `<div class="log-entry">
+      <span class="log-time">${t}</span>
+      <span class="log-task">${l.task}</span>
+      <span class="log-status ${l.status}">${l.status}</span>
+      <span class="log-detail">${l.detail || ''}</span>
+    </div>`;
+  }
+  document.getElementById('cron-logs').innerHTML = h;
+}
+
+async function triggerCron(jobId) {
+  toast(`Triggering ${jobId}...`);
+  const d = await api('/cron/trigger', { method: 'POST', body: { job_id: jobId } });
+  if (d.success) {
+    toast(`${jobId} triggered — running in background`);
+    setTimeout(loadLogs, 5000);
+  } else {
+    toast(d.error || 'Failed', true);
+  }
+}
+
+async function clearLeaderboard() {
+  if (!confirm('Clear the current tournament leaderboard? Players stay registered but scores reset to 0.')) return;
+  // Get current tournament ID first
+  const info = await api('/tournament/dev-leaderboard');
+  if (!info.tournament_id) { toast('No tournament found', true); return; }
+  const d = await api('/tournament/admin/clear-leaderboard', {
+    method: 'POST',
+    body: { tournament_id: info.tournament_id }
+  });
+  if (d.success) {
+    toast(`Cleared ${info.tournament_id}: ${d.scores_deleted} scores deleted`);
+    loadLeaderboard();
+  } else {
+    toast(d.error || 'Failed', true);
+  }
+}
+
+async function lookupPlayer() {
+  const addr = document.getElementById('player-addr').value.trim();
+  if (!addr) return;
+  const d = await api(`/tournament/player-status?address=${addr}`, { noKey: true });
+  const el = document.getElementById('player-result');
+  if (d.error || d.detail) {
+    el.innerHTML = `<div style="color:#f44336">${d.error || d.detail}</div>`;
+    return;
+  }
+  el.innerHTML = `<div style="padding:8px;background:#1a1a1a;border-radius:4px;font-size:0.85rem;">
+    <div><strong>Tournament:</strong> ${d.tournament_id || '—'}</div>
+    <div><strong>Score:</strong> <span class="score">${d.best_score || 0}</span> (${d.best_grade || '—'})</div>
+    <div><strong>Games:</strong> ${d.total_games || 0} / ${d.deposits || 1} deposits</div>
+    <div><strong>Remaining:</strong> ${d.games_remaining || 0}</div>
+    <div><strong>Rank:</strong> #${d.rank || '—'} of ${d.total_entries || '—'}</div>
+  </div>`;
+}
+
+function toast(msg, isError = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (isError ? ' error' : '');
+  setTimeout(() => el.className = 'toast', 3000);
+}
+</script>
+</body>
+</html>

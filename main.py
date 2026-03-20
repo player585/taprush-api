@@ -1040,6 +1040,15 @@ def serve_dev_page(path: str = "index.html"):
     return JSONResponse(status_code=404, content={"error": "Not found"})
 
 
+@app.get("/admin")
+def admin_page():
+    """Serve the admin dashboard."""
+    file_path = STATIC_DIR / "admin.html"
+    if file_path.exists():
+        return FileResponse(file_path, media_type="text/html")
+    return JSONResponse(status_code=404, content={"error": "Admin page not found"})
+
+
 # ══════════════════════════════════════════════
 #  RUN
 # ══════════════════════════════════════════════
